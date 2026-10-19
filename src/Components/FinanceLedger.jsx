@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, TrendingDown, Wallet, PlusCircle, FileText, 
-  Download, Trash2, Sparkles, ArrowUpRight, ArrowDownRight 
+  Download, Trash2, Sparkles, ArrowUpRight, ArrowDownRight, Lock 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export default function FinanceLedger({ theme, activeRole }) {
+export default function FinanceLedger({ theme, activeRole, userProfile }) {
   const safeTheme = theme || {
     bg: 'bg-[#0a0a0a]',
     surface: 'bg-[#121212]',
@@ -16,17 +16,17 @@ export default function FinanceLedger({ theme, activeRole }) {
     hover: 'hover:bg-[#1f1f1f]',
   };
 
-  const canEditFinance = activeRole === 'admin' || activeRole === 'council';
+  // Strictly only Student Council and System Admin can add or delete financial records
+  const effectiveRole = userProfile?.role || activeRole || 'student';
+  const canEditFinance = effectiveRole === 'admin' || effectiveRole === 'council';
 
   const [funds, setFunds] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Form states for Incoming Fund
   const [fundSource, setFundSource] = useState('');
   const [fundAmount, setFundAmount] = useState('');
 
-  // Form states for Expense
   const [txCategory, setTxCategory] = useState('Events');
   const [txDescription, setTxDescription] = useState('');
   const [txReceipt, setTxReceipt] = useState('');
@@ -75,13 +75,11 @@ export default function FinanceLedger({ theme, activeRole }) {
     setLoading(false);
   };
 
-  // --- ADD INCOMING FUND TO TREASURY ---
   const handleAddFund = async (e) => {
     e.preventDefault();
-    if (!fundSource.trim() || !fundAmount) return;
+    if (!canEditFinance || !fundSource.trim() || !fundAmount) return;
 
     const todayStr = new Date().toISOString().split('T')[0];
-
     const newFund = {
       source: fundSource.trim(),
       amount: Number(fundAmount),
@@ -91,9 +89,8 @@ export default function FinanceLedger({ theme, activeRole }) {
     const { data, error } = await supabase.from('funds').insert([newFund]).select();
 
     if (error) {
-      // Fallback if your 'funds' table uses 'description' or doesn't have 'date' column
       const fallbackFund = {
-        source: fundSource.trim(),
+        description: fundSource.trim(),
         amount: Number(fundAmount),
       };
       const retry = await supabase.from('funds').insert([fallbackFund]).select();
@@ -101,9 +98,7 @@ export default function FinanceLedger({ theme, activeRole }) {
         alert('Error adding fund: ' + retry.error.message);
         return;
       }
-      if (retry.data) {
-        setFunds((prev) => [retry.data[0], ...prev.filter(f => f.id !== retry.data[0].id)]);
-      }
+      if (retry.data) setFunds((prev) => [retry.data[0], ...prev]);
     } else if (data) {
       setFunds((prev) => [data[0], ...prev.filter(f => f.id !== data[0].id)]);
     }
@@ -112,10 +107,9 @@ export default function FinanceLedger({ theme, activeRole }) {
     setFundAmount('');
   };
 
-  // --- ADD EXPENSE TRANSACTION ---
   const handleAddTransaction = async (e) => {
     e.preventDefault();
-    if (!txDescription.trim() || !txAmount) return;
+    if (!canEditFinance || !txDescription.trim() || !txAmount) return;
 
     const newTx = {
       category: txCategory,
@@ -141,31 +135,31 @@ export default function FinanceLedger({ theme, activeRole }) {
   };
 
   const handleDeleteFund = async (id) => {
+    if (!canEditFinance) return;
     const { error } = await supabase.from('funds').delete().eq('id', id);
     if (!error) setFunds(funds.filter(f => f.id !== id));
   };
 
   const handleDeleteTransaction = async (id) => {
+    if (!canEditFinance) return;
     const { error } = await supabase.from('transactions').delete().eq('id', id);
     if (!error) setTransactions(transactions.filter(t => t.id !== id));
   };
 
-  // Totals Calculation
   const totalTreasury = funds.reduce((sum, f) => sum + Number(f.amount || 0), 0);
   const totalUtilized = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
   const availableBalance = totalTreasury - totalUtilized;
 
-  // Export CSV
   const handleExportCSV = () => {
     const headers = ['Type,Category/Source,Description,Reference,Date,Amount (INR)\n'];
     const fundRows = funds.map(f => {
-      const src = f.source || f.description || f.title || 'Treasury Inflow';
+      const src = f.source || f.description || f.title || 'Cohort Fund / Sponsorship';
       const dt = f.date || (f.created_at ? f.created_at.split('T')[0] : '');
-      return `TREASURY INFLOW (+),"Treasury Addition","${src}","Verified Deposit",${dt},${f.amount}`;
+      return `TREASURY INFLOW (+),"Treasury Addition","${src}","Added to Treasury",${dt},${f.amount}`;
     });
     const txRows = transactions.map(t => {
       const dt = t.date || (t.created_at ? t.created_at.split('T')[0] : '');
-      return `EXPENSE (-),"${t.category || 'General'}","${t.description || ''}","${t.receipt || 'Verified'}",${dt},-${t.amount}`;
+      return `EXPENSE (-),"${t.category || 'General'}","${t.description || t.title || 'Cohort Expense'}","${t.receipt || 'Verified'}",${dt},-${t.amount}`;
     });
 
     const blob = new Blob([headers.concat([...fundRows, ...txRows].join('\n'))], { type: 'text/csv' });
@@ -186,7 +180,11 @@ export default function FinanceLedger({ theme, activeRole }) {
           <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">
             Live Financial Ledger
           </span>
-          {loading && <span className={`text-xs font-semibold animate-pulse ml-2 ${safeTheme.textMuted}`}>Syncing...</span>}
+          {!canEditFinance && (
+            <span className="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/10 text-gray-400 border border-gray-500/20 flex items-center gap-1">
+              <Lock className="w-3 h-3" /> Read-Only View (Managed by Council & Admin)
+            </span>
+          )}
         </div>
 
         <button
@@ -197,7 +195,7 @@ export default function FinanceLedger({ theme, activeRole }) {
         </button>
       </div>
 
-      {/* Top 3 KPI Summary Cards */}
+      {/* Top 3 KPI Summary Cards (Visible to Everyone) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
           <div className="flex items-center justify-between mb-3">
@@ -236,11 +234,9 @@ export default function FinanceLedger({ theme, activeRole }) {
         </div>
       </div>
 
-      {/* Admin / Council Entry Forms */}
+      {/* Admin & Student Council Entry Forms ONLY */}
       {canEditFinance && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* Log Incoming Fund / Sponsorship */}
           <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
             <h3 className={`text-sm font-extrabold ${safeTheme.textStrong} mb-4 flex items-center gap-2`}>
               <PlusCircle className="w-4 h-4 text-emerald-500" /> Log Incoming Fund / Sponsorship
@@ -274,7 +270,6 @@ export default function FinanceLedger({ theme, activeRole }) {
             </form>
           </div>
 
-          {/* Record New Expense */}
           <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
             <h3 className={`text-sm font-extrabold ${safeTheme.textStrong} mb-4 flex items-center gap-2`}>
               <FileText className="w-4 h-4 text-amber-500" /> Record New Expense
@@ -289,7 +284,7 @@ export default function FinanceLedger({ theme, activeRole }) {
                   <option value="Events">Events</option>
                   <option value="Club Ops">Club Ops</option>
                   <option value="Marketing">Marketing</option>
-                  <option value="Refreshments">Refreshments</option>
+                  <option value="Catering">Catering</option>
                   <option value="Cultural & Sports">Cultural & Sports</option>
                   <option value="Misc">Misc</option>
                 </select>
@@ -329,7 +324,7 @@ export default function FinanceLedger({ theme, activeRole }) {
         </div>
       )}
 
-      {/* TABLE 1: DEDICATED TREASURY INFLOWS & ADDITIONS TABLE */}
+      {/* TABLE 1: TREASURY INFLOWS & ADDITIONS LEDGER (Visible to Everyone) */}
       <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
           <div>
@@ -337,21 +332,22 @@ export default function FinanceLedger({ theme, activeRole }) {
               <TrendingUp className="w-4 h-4 text-emerald-500" /> Treasury Inflows & Additions Ledger
             </h3>
             <p className={`text-xs ${safeTheme.textMuted} mt-0.5`}>
-              Tracks all funds, sponsorships, and budget allocations added to the cohort treasury
+              Every rupee added to the cohort treasury (Visible to all students; managed by Council & Admin)
             </p>
           </div>
           <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            {funds.length} {funds.length === 1 ? 'Deposit' : 'Deposits'}
+            {funds.length} {funds.length === 1 ? 'Addition' : 'Additions'}
           </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[540px]">
+          <table className="w-full text-left border-collapse min-w-[560px]">
             <thead>
               <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider ${safeTheme.textMuted}`}>
                 <th className="pb-3 pr-4">Type</th>
                 <th className="pb-3 px-4">Funding Source / Sponsor</th>
-                <th className="pb-3 px-4">Date Recorded</th>
+                <th className="pb-3 px-4">Reference</th>
+                <th className="pb-3 px-4">Date</th>
                 <th className="pb-3 pl-4 text-right">Amount Added</th>
                 {canEditFinance && <th className="pb-3 pl-4 text-right">Action</th>}
               </tr>
@@ -359,14 +355,14 @@ export default function FinanceLedger({ theme, activeRole }) {
             <tbody className="divide-y divide-gray-500/10 text-xs">
               {funds.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className={`py-8 text-center ${safeTheme.textMuted} font-semibold`}>
+                  <td colSpan={6} className={`py-8 text-center ${safeTheme.textMuted} font-semibold`}>
                     No treasury additions recorded yet.
                   </td>
                 </tr>
               ) : (
                 funds.map((f) => {
-                  const sourceLabel = f.source || f.description || f.title || 'Cohort Treasury Allocation';
-                  const dateLabel = f.date || (f.created_at ? f.created_at.split('T')[0] : 'Verified');
+                  const sourceLabel = f.source || f.description || f.title || 'Cohort Fund / Sponsorship';
+                  const dateLabel = f.date || (f.created_at ? f.created_at.split('T')[0] : 'Recorded');
                   return (
                     <tr key={f.id} className="hover:bg-gray-500/5 transition-colors">
                       <td className="py-4 pr-4 align-middle">
@@ -376,6 +372,9 @@ export default function FinanceLedger({ theme, activeRole }) {
                       </td>
                       <td className={`py-4 px-4 font-extrabold ${safeTheme.textStrong} align-middle`}>
                         {sourceLabel}
+                      </td>
+                      <td className={`py-4 px-4 ${safeTheme.textMuted} align-middle`}>
+                        Added to Treasury
                       </td>
                       <td className={`py-4 px-4 ${safeTheme.textMuted} align-middle whitespace-nowrap`}>
                         {dateLabel}
@@ -388,7 +387,7 @@ export default function FinanceLedger({ theme, activeRole }) {
                           <button
                             onClick={() => handleDeleteFund(f.id)}
                             className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
-                            title="Delete Treasury Record"
+                            title="Delete Treasury Entry"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -403,15 +402,15 @@ export default function FinanceLedger({ theme, activeRole }) {
         </div>
       </div>
 
-      {/* TABLE 2: DEDICATED EXPENSE TRANSACTIONS TABLE */}
+      {/* TABLE 2: EXPENSE & UTILIZATION LEDGER (Visible to Everyone) */}
       <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
           <div>
             <h3 className={`text-base font-extrabold ${safeTheme.textStrong} flex items-center gap-2`}>
-              <TrendingDown className="w-4 h-4 text-amber-500" /> Cohort Expense & Utilization Ledger
+              <TrendingDown className="w-4 h-4 text-amber-500" /> Cohort Expenses & Utilization Ledger
             </h3>
             <p className={`text-xs ${safeTheme.textMuted} mt-0.5`}>
-              Itemized breakdown of all council and club expenditures with verification references
+              Every expense spent from the cohort treasury (Visible to all students; managed by Council & Admin)
             </p>
           </div>
           <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -440,7 +439,7 @@ export default function FinanceLedger({ theme, activeRole }) {
                 </tr>
               ) : (
                 transactions.map((t) => {
-                  const dateLabel = t.date || (t.created_at ? t.created_at.split('T')[0] : 'Verified');
+                  const dateLabel = t.date || (t.created_at ? t.created_at.split('T')[0] : 'Recorded');
                   return (
                     <tr key={t.id} className="hover:bg-gray-500/5 transition-colors">
                       <td className="py-4 pr-4 align-middle">
@@ -449,7 +448,7 @@ export default function FinanceLedger({ theme, activeRole }) {
                         </span>
                       </td>
                       <td className={`py-4 px-4 font-extrabold ${safeTheme.textStrong} align-middle`}>
-                        {t.description || t.title}
+                        {t.description || t.title || 'Cohort Expense'}
                       </td>
                       <td className={`py-4 px-4 ${safeTheme.textMuted} align-middle`}>
                         {t.receipt || 'Verified'}

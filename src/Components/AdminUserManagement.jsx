@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Users, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { UserPlus, Users, CheckCircle2, AlertCircle, Sparkles, Shield } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export default function AdminUserManagement({ theme }) {
@@ -17,18 +17,17 @@ export default function AdminUserManagement({ theme }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // New Credential Form State
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [roleGroup, setRoleGroup] = useState('council'); // 'council' | 'club_lead' | 'admin' | 'student'
+  const [roleGroup, setRoleGroup] = useState('council');
   const [subRole, setSubRole] = useState('President');
   const [clubName, setClubName] = useState('Product Management Club');
 
   const [creating, setCreating] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
-  // All 6 Official Clubs
+  // All 6 Official Clubs including Cultural & Sports
   const clubsList = [
     'Product Management Club',
     'Strategy Club',
@@ -72,17 +71,16 @@ export default function AdminUserManagement({ theme }) {
       let finalOrg = 'PGP Cohort';
 
       if (roleGroup === 'council') {
-        finalSubRole = subRole; // President, Vice-President, Treasurer
+        finalSubRole = subRole;
         finalOrg = 'Student Council';
       } else if (roleGroup === 'club_lead') {
-        finalSubRole = subRole; // President, Vice-President
+        finalSubRole = subRole;
         finalOrg = clubName;
       } else if (roleGroup === 'admin') {
         finalSubRole = 'System Admin';
         finalOrg = 'Administration';
       }
 
-      // Isolated client so the System Admin stays logged in
       const tempSupabase = createClient(
         supabase.supabaseUrl,
         supabase.supabaseKey,
@@ -106,7 +104,7 @@ export default function AdminUserManagement({ theme }) {
 
       setStatusMsg({
         type: 'success',
-        text: `Credentials created for ${fullName} (${finalSubRole} •${finalOrg})!`
+        text: `Credentials created for ${fullName} (${finalSubRole} • ${finalOrg})!`
       });
 
       setFullName('');
@@ -135,7 +133,7 @@ export default function AdminUserManagement({ theme }) {
     if (role === 'admin') return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
     if (role === 'council') return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
     if (role === 'club_lead') return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-    return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+    return 'bg-gray-500/10 text-gray-300 border-gray-500/20';
   };
 
   return (
@@ -153,10 +151,10 @@ export default function AdminUserManagement({ theme }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* LEFT COLUMN: CREATE CREDENTIALS FORM (4 cols on XL) */}
-        <div className={`xl:col-span-4 ${safeTheme.surface} border${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
+        {/* LEFT COLUMN: CREATE CREDENTIALS FORM */}
+        <div className={`lg:col-span-4 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <UserPlus className="w-5 h-5 text-emerald-500" />
@@ -189,7 +187,7 @@ export default function AdminUserManagement({ theme }) {
                 placeholder="e.g. Abhijeet"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs${safeTheme.textStrong} outline-none focus:border-emerald-500`}
+                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`}
               />
             </div>
 
@@ -203,7 +201,7 @@ export default function AdminUserManagement({ theme }) {
                 placeholder="leader@ssb.scaler.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs${safeTheme.textStrong} outline-none focus:border-emerald-500`}
+                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`}
               />
             </div>
 
@@ -218,7 +216,7 @@ export default function AdminUserManagement({ theme }) {
                 placeholder="e.g. Scaler@2026"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs${safeTheme.textStrong} outline-none focus:border-emerald-500`}
+                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`}
               />
             </div>
 
@@ -240,7 +238,7 @@ export default function AdminUserManagement({ theme }) {
                     className={`py-2 px-3 rounded-xl text-xs font-bold border text-left transition-all ${
                       roleGroup === item.id
                         ? 'bg-emerald-500 text-white border-emerald-500'
-                        : `${safeTheme.inputBg} ${safeTheme.border} ${safeTheme.textMuted}`
+                        : `${safeTheme.inputBg} ${safeTheme.border}${safeTheme.textMuted}`
                     }`}
                   >
                     {item.label}
@@ -256,7 +254,7 @@ export default function AdminUserManagement({ theme }) {
                   <select
                     value={subRole}
                     onChange={(e) => setSubRole(e.target.value)}
-                    className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold${safeTheme.textStrong} outline-none`}
+                    className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold ${safeTheme.textStrong} outline-none`}
                   >
                     <option value="President">President</option>
                     <option value="Vice-President">Vice-President</option>
@@ -274,7 +272,7 @@ export default function AdminUserManagement({ theme }) {
                     <select
                       value={clubName}
                       onChange={(e) => setClubName(e.target.value)}
-                      className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold${safeTheme.textStrong} outline-none`}
+                      className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold ${safeTheme.textStrong} outline-none`}
                     >
                       {clubsList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
@@ -286,7 +284,7 @@ export default function AdminUserManagement({ theme }) {
                     <select
                       value={subRole}
                       onChange={(e) => setSubRole(e.target.value)}
-                      className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold${safeTheme.textStrong} outline-none`}
+                      className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold ${safeTheme.textStrong} outline-none`}
                     >
                       <option value="President">President</option>
                       <option value="Vice-President">Vice-President</option>
@@ -306,42 +304,51 @@ export default function AdminUserManagement({ theme }) {
           </form>
         </div>
 
-        {/* RIGHT COLUMN: RESPONSIVE DIRECTORY & QUICK ROLE OVERRIDE (8 cols on XL) */}
-        <div className={`xl:col-span-8 ${safeTheme.surface} border${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
+        {/* RIGHT COLUMN: COHORT & LEADERSHIP DIRECTORY */}
+        <div className={`lg:col-span-8 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
           <h3 className={`text-base font-extrabold ${safeTheme.textStrong} mb-5 flex items-center gap-2`}>
             <Users className="w-4 h-4 text-emerald-500" /> Cohort & Leadership Directory
           </h3>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[620px]">
+            <table className="w-full text-left border-collapse min-w-[640px]">
               <thead>
-                <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider${safeTheme.textMuted}`}>
-                  <th className="pb-3 pr-4">Name & Email</th>
-                  <th className="pb-3 px-4">Current Designation</th>
-                  <th className="pb-3 pl-4 text-right">Quick Role Override</th>
+                <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider ${safeTheme.textMuted}`}>
+                  <th className="pb-3 pr-4 w-[32%]">Name & Email</th>
+                  <th className="pb-3 px-4 w-[36%]">Current Designation</th>
+                  <th className="pb-3 pl-4 text-right w-[32%]">Quick Role Override</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-500/10 text-xs">
                 {users.map((u) => {
-                  // Normalize legacy 'Cultural & Sports Committee' into 'Cultural & Sports' if needed
                   const displayOrg = u.organization === 'Cultural & Sports Committee' ? 'Cultural & Sports' : u.organization;
-                  const selectVal = `${u.role}|${u.sub_role}\vert{}${displayOrg}`;
+                  const selectVal = `${u.role}|${u.sub_role}|${displayOrg}`;
 
                   return (
                     <tr key={u.id} className="hover:bg-gray-500/5 transition-colors">
+                      {/* Column 1: Name & Email */}
                       <td className="py-4 pr-4 align-middle">
-                        <div className={`font-extrabold ${safeTheme.textStrong} leading-snug`}>{u.full_name}</div>
+                        <div className={`font-extrabold text-sm ${safeTheme.textStrong}`}>{u.full_name}</div>
                         <div className={`text-[11px] ${safeTheme.textMuted} truncate max-w-[200px]`}>{u.email}</div>
                       </td>
 
-                      {/* Fixed Responsive Badge: inline-flex + whitespace-nowrap prevents broken multi-line borders */}
+                      {/* Column 2: Clean Non-Wrapping Badge Layout */}
                       <td className="py-4 px-4 align-middle">
-                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border whitespace-nowrap ${getBadgeStyle(u.role)}`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80 shrink-0" />
-                          <span>{u.sub_role} • {displayOrg}</span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span 
+                            style={{ whiteSpace: 'nowrap' }}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider border ${getBadgeStyle(u.role)}`}
+                          >
+                            <Shield className="w-3 h-3 shrink-0" />
+                            {u.sub_role}
+                          </span>
+                          <span className={`text-[11px] font-bold ${safeTheme.textMuted} pl-1`}>
+                            {displayOrg}
+                          </span>
                         </div>
                       </td>
 
+                      {/* Column 3: Role Override Select */}
                       <td className="py-4 pl-4 text-right align-middle">
                         <select
                           value={selectVal}
@@ -349,7 +356,7 @@ export default function AdminUserManagement({ theme }) {
                             const [r, sr, org] = e.target.value.split('|');
                             handleQuickRoleUpdate(u.id, r, sr, org);
                           }}
-                          className={`${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2 text-[11px] font-bold${safeTheme.textStrong} outline-none focus:border-emerald-500 transition-colors cursor-pointer max-w-[230px] w-full`}
+                          className={`${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2 text-xs font-bold ${safeTheme.textStrong} outline-none focus:border-emerald-500 transition-colors cursor-pointer w-full max-w-[240px]`}
                         >
                           <optgroup label="Student Cohort">
                             <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
