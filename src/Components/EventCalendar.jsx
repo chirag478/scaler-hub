@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Trash2, Users, X, Sparkles, Clock } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 export default function EventCalendar({ theme, activeRole }) {
   const isAdmin = activeRole === 'admin';
@@ -13,12 +14,8 @@ export default function EventCalendar({ theme, activeRole }) {
   
   const isDark = theme.bg.includes('0a0a0a');
 
-  const [calendarEvents, setCalendarEvents] = useState([
-    { 
-      id: 1, date: '2026-10-25', time: '10:00 AM - 4:00 PM', name: 'Product Management Hackathon', 
-      desc: '48-hour case study competition.', reason: 'Flagship cohort event', attendees: ['Alex S.', 'Priya M.', 'Rahul T.'] 
-    }
-  ]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
@@ -35,36 +32,91 @@ export default function EventCalendar({ theme, activeRole }) {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-  const handleAddCalendarEvent = (e) => {
-    e.preventDefault();
-    if (!eventDate || !eventName) return;
-    setCalendarEvents([...calendarEvents, { 
-      id: Date.now(), date: eventDate, time: eventTime || 'All Day', name: eventName, desc: eventDesc, reason: eventReason, attendees: [] 
-    }]);
-    setEventDate(''); setEventTime(''); setEventName(''); setEventDesc(''); setEventReason('');
-    setCurrentDate(new Date(new Date(eventDate).getFullYear(), new Date(eventDate).getMonth(), 1));
+  // --- FETCH EVENTS FROM SUPABASE ---
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (!error && data) {
+      setCalendarEvents(data);
+    }
+    setLoading(false);
   };
 
-  const handleUnblockDate = (id) => {
+  // --- ADD EVENT TO SUPABASE ---
+  const handleAddCalendarEvent = async (e) => {
+    e.preventDefault();
+    if (!eventDate || !eventName) return;
+
+    const newEvent = {
+      date: eventDate,
+      time: eventTime || 'All Day',
+      name: eventName,
+      desc: eventDesc,
+      reason: eventReason,
+      attendees: []
+    };
+
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .insert([newEvent])
+      .select();
+
+    if (!error && data) {
+      setCalendarEvents([...calendarEvents, data[0]]);
+      setEventDate(''); setEventTime(''); setEventName(''); setEventDesc(''); setEventReason('');
+      setCurrentDate(new Date(new Date(eventDate).getFullYear(), new Date(eventDate).getMonth(), 1));
+    }
+  };
+
+  // --- DELETE EVENT FROM SUPABASE ---
+  const handleUnblockDate = async (id) => {
     if (isClubLead || isStudent) {
       alert("Security Alert: Club Presidents cannot delete events.");
       return;
     }
-    setCalendarEvents(calendarEvents.filter(event => event.id !== id));
-    setSelectedEventId(null);
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .delete()
+      .eq('id', id);
+
+    if (!error) {
+      setCalendarEvents(calendarEvents.filter(event => event.id !== id));
+      setSelectedEventId(null);
+    }
   };
 
-  const handleRSVP = (id) => {
-    setCalendarEvents(calendarEvents.map(event => {
-      if (event.id === id) {
-        const currentUserName = "Current User";
-        const hasRSVPd = event.attendees.includes(currentUserName);
-        const updatedAttendees = hasRSVPd 
-          ? event.attendees.filter(name => name !== currentUserName) : [...event.attendees, currentUserName]; 
-        return { ...event, attendees: updatedAttendees };
-      }
-      return event;
-    }));
+  // --- UPDATE RSVP IN SUPABASE ---
+  const handleRSVP = async (id) => {
+    const targetEvent = calendarEvents.find(e => e.id === id);
+    if (!targetEvent) return;
+
+    const currentUserName = "Current User";
+    const currentAttendees = targetEvent.attendees || [];
+    const hasRSVPd = currentAttendees.includes(currentUserName);
+    
+    const updatedAttendees = hasRSVPd 
+      ? currentAttendees.filter(name => name !== currentUserName) 
+      : [...currentAttendees, currentUserName];
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .update({ attendees: updatedAttendees })
+      .eq('id', id);
+
+    if (!error) {
+      setCalendarEvents(calendarEvents.map(event => 
+        event.id === id ? { ...event, attendees: updatedAttendees } : event
+      ));
+    }
   };
 
   const handleEventClick = (id) => setSelectedEventId(selectedEventId === id ? null : id);
@@ -74,9 +126,12 @@ export default function EventCalendar({ theme, activeRole }) {
   return (
     <div className={`max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500`}>
       
-      <div className="flex items-center gap-2 mb-2">
-        <Sparkles className="w-5 h-5 text-emerald-500" />
-        <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">Event Schedule</span>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-emerald-500" />
+          <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">Event Schedule</span>
+        </div>
+        {loading && <span className={`text-xs font-semibold animate-pulse ${theme.textMuted}`}>Syncing with cloud...</span>}
       </div>
 
       <div className={`grid grid-cols-1 ${canBlockDate ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-5 md:gap-6`}>
@@ -148,7 +203,8 @@ export default function EventCalendar({ theme, activeRole }) {
               const dayStr = String(day).padStart(2, '0');
               const exactDateStr = `${currentYear}-${monthStr}-${dayStr}`;
               const blockedEvent = calendarEvents.find(e => e.date === exactDateStr);
-              const hasRSVPd = blockedEvent?.attendees.includes("Current User");
+              const attendeesList = blockedEvent?.attendees || [];
+              const hasRSVPd = attendeesList.includes("Current User");
               const isSelected = blockedEvent && selectedEventId === blockedEvent.id;
               
               const dayOfWeek = (firstDayOfMonth + day - 1) % 7;
@@ -175,7 +231,7 @@ export default function EventCalendar({ theme, activeRole }) {
                     <div className="mt-auto">
                       <span className={`text-[10px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'} truncate w-full text-left block leading-tight mb-1`}>{blockedEvent.name}</span>
                       <span className="flex items-center gap-1 text-[9px] font-bold text-white bg-emerald-500 px-1.5 py-0.5 rounded w-fit">
-                        <Users className="w-2.5 h-2.5" /> {blockedEvent.attendees.length}
+                        <Users className="w-2.5 h-2.5" /> {attendeesList.length}
                       </span>
                     </div>
                   )}
@@ -211,11 +267,11 @@ export default function EventCalendar({ theme, activeRole }) {
                           <div className="mt-2">
                             <div className={`flex items-center justify-between text-xs font-extrabold ${isDark ? 'text-emerald-400' : 'text-emerald-600'} mb-2.5`}>
                               <span className="flex items-center gap-1.5"><Users className="w-4 h-4" /> Guest List</span>
-                              <span className="bg-emerald-500/20 px-2 py-0.5 rounded-md">{blockedEvent.attendees.length} RSVPs</span>
+                              <span className="bg-emerald-500/20 px-2 py-0.5 rounded-md">{attendeesList.length} RSVPs</span>
                             </div>
-                            {blockedEvent.attendees.length > 0 ? (
+                            {attendeesList.length > 0 ? (
                               <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto pr-1">
-                                {blockedEvent.attendees.map(attendee => (
+                                {attendeesList.map(attendee => (
                                   <span key={attendee} className={`text-[10px] font-bold px-2 py-1 rounded-md bg-gray-500/10 ${theme.textStrong}`}>{attendee}</span>
                                 ))}
                               </div>
