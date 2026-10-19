@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Shield, Users, Award, Key, Mail, User, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
+import { UserPlus, Users, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export default function AdminUserManagement({ theme }) {
@@ -13,18 +13,18 @@ export default function AdminUserManagement({ theme }) {
   const [password, setPassword] = useState('');
   const [roleGroup, setRoleGroup] = useState('council'); // 'council' | 'club_lead' | 'admin' | 'student'
   const [subRole, setSubRole] = useState('President');
-  const [clubName, setClubName] = useState('Product Club');
+  const [clubName, setClubName] = useState('Product Management Club');
 
   const [creating, setCreating] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
+  // Exact 5 Clubs
   const clubsList = [
-    'Product Club',
-    'Tech & AI Club',
-    'Finance & Consulting Club',
-    'Marketing & Brand Club',
-    'Entrepreneurship Cell',
-    'Cultural & Sports Committee'
+    'Product Management Club',
+    'Strategy Club',
+    'Marketing Club',
+    'Entrepreneurship & VC Club',
+    'Finance Club'
   ];
 
   useEffect(() => {
@@ -51,7 +51,6 @@ export default function AdminUserManagement({ theme }) {
     else setSubRole('Cohort Member');
   };
 
-  // Provision a brand new account in the background without logging out the System Admin!
   const handleCreateCredential = async (e) => {
     e.preventDefault();
     setStatusMsg({ type: '', text: '' });
@@ -62,24 +61,24 @@ export default function AdminUserManagement({ theme }) {
       let finalOrg = 'PGP Cohort';
 
       if (roleGroup === 'council') {
-        finalSubRole = subRole;
+        finalSubRole = subRole; // President, Vice-President, Treasurer
         finalOrg = 'Student Council';
       } else if (roleGroup === 'club_lead') {
-        finalSubRole = subRole;
+        finalSubRole = subRole; // President, Vice-President
         finalOrg = clubName;
       } else if (roleGroup === 'admin') {
         finalSubRole = 'System Admin';
         finalOrg = 'Administration';
       }
 
-      // Create an isolated, non-persisting client so the Admin stays logged in!
+      // Isolated client so the System Admin stays logged in
       const tempSupabase = createClient(
         supabase.supabaseUrl,
         supabase.supabaseKey,
         { auth: { persistSession: false, autoRefreshToken: false } }
       );
 
-      const { data, error } = await tempSupabase.auth.signUp({
+      const { error } = await tempSupabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
@@ -96,7 +95,7 @@ export default function AdminUserManagement({ theme }) {
 
       setStatusMsg({
         type: 'success',
-        text: `Credentials created for ${fullName} (${finalSubRole} • ${finalOrg})! You can now share the email & password with them.`
+        text: `Credentials created for ${fullName} (${finalSubRole} • ${finalOrg})!`
       });
 
       setFullName('');
@@ -110,7 +109,6 @@ export default function AdminUserManagement({ theme }) {
     }
   };
 
-  // Update an existing user's role directly in the database
   const handleQuickRoleUpdate = async (userId, newRole, newSubRole, newOrg) => {
     const { error } = await supabase
       .from('profiles')
@@ -182,7 +180,7 @@ export default function AdminUserManagement({ theme }) {
               <input
                 type="email"
                 required
-                placeholder="president.council@ssb.scaler.com"
+                placeholder="admin@ssb.scaler.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-3.5 py-2.5 text-xs ${theme.textStrong} outline-none focus:border-emerald-500`}
@@ -191,7 +189,7 @@ export default function AdminUserManagement({ theme }) {
 
             <div>
               <label className={`block text-[11px] font-bold ${theme.textMuted} uppercase tracking-wider mb-1`}>
-                Assign Temporary Password
+                Assign Password
               </label>
               <input
                 type="text"
@@ -328,15 +326,37 @@ export default function AdminUserManagement({ theme }) {
                       }}
                       className={`${theme.inputBg} border ${theme.border} rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${theme.textStrong} outline-none`}
                     >
-                      <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
-                      <option value="council|President|Student Council">Council: President</option>
-                      <option value="council|Vice-President|Student Council">Council: Vice-President</option>
-                      <option value="council|Treasurer|Student Council">Council: Treasurer</option>
-                      <option value="club_lead|President|Product Club">Product Club: President</option>
-                      <option value="club_lead|Vice-President|Product Club">Product Club: Vice-President</option>
-                      <option value="club_lead|President|Tech & AI Club">Tech Club: President</option>
-                      <option value="club_lead|Vice-President|Tech & AI Club">Tech Club: Vice-President</option>
-                      <option value="admin|System Admin|Administration">System Admin</option>
+                      <optgroup label="Student Cohort">
+                        <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
+                      </optgroup>
+                      <optgroup label="Student Council">
+                        <option value="council|President|Student Council">Council: President</option>
+                        <option value="council|Vice-President|Student Council">Council: Vice-President</option>
+                        <option value="council|Treasurer|Student Council">Council: Treasurer</option>
+                      </optgroup>
+                      <optgroup label="Product Management Club">
+                        <option value="club_lead|President|Product Management Club">Product Management Club: President</option>
+                        <option value="club_lead|Vice-President|Product Management Club">Product Management Club: Vice-President</option>
+                      </optgroup>
+                      <optgroup label="Strategy Club">
+                        <option value="club_lead|President|Strategy Club">Strategy Club: President</option>
+                        <option value="club_lead|Vice-President|Strategy Club">Strategy Club: Vice-President</option>
+                      </optgroup>
+                      <optgroup label="Marketing Club">
+                        <option value="club_lead|President|Marketing Club">Marketing Club: President</option>
+                        <option value="club_lead|Vice-President|Marketing Club">Marketing Club: Vice-President</option>
+                      </optgroup>
+                      <optgroup label="Entrepreneurship & VC Club">
+                        <option value="club_lead|President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: President</option>
+                        <option value="club_lead|Vice-President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: Vice-President</option>
+                      </optgroup>
+                      <optgroup label="Finance Club">
+                        <option value="club_lead|President|Finance Club">Finance Club: President</option>
+                        <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
+                      </optgroup>
+                      <optgroup label="System Administration">
+                        <option value="admin|System Admin|Administration">System Admin</option>
+                      </optgroup>
                     </select>
                   </td>
                 </tr>
