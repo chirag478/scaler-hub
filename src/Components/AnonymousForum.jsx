@@ -39,10 +39,14 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
     e.preventDefault();
     if (!newPostText.trim()) return;
 
+    // Get current session user email directly to ensure author tracking never fails
+    const { data: { user } } = await supabase.auth.getUser();
+    const posterEmail = userProfile?.email || user?.email || 'unknown@scaler.com';
+
     const newPost = {
       text: newPostText,
       author: 'Anonymous',
-      author_email: userProfile?.email || 'unknown@scaler.com', // Stored for Admin visibility
+      author_email: posterEmail, // Captured securely for Admin view
       category: newPostCategory,
       upvotes: 1,
       status: 'Under Review',
@@ -57,12 +61,13 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
     if (!error && data) {
       setPosts([data[0], ...posts]);
       setNewPostText('');
+    } else if (error) {
+      alert("Error posting: " + error.message);
     }
   };
 
   const handleUpvote = async (id, currentUpvotes) => {
     const updatedUpvotes = (currentUpvotes || 0) + 1;
-
     const { error } = await supabase
       .from('forum_posts')
       .update({ upvotes: updatedUpvotes })
@@ -195,9 +200,9 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
                   </span>
                   
                   {/* ADMIN-ONLY REAL AUTHOR REVEAL */}
-                  {isAdmin && post.author_email && (
+                  {isAdmin && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/30 flex items-center gap-1">
-                      <UserCheck className="w-3 h-3" /> Real Author: {post.author_email}
+                      <UserCheck className="w-3 h-3" /> Author: {post.author_email || 'Unknown'}
                     </span>
                   )}
 
