@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, TrendingDown, Wallet, PlusCircle, FileText, 
-  Download, Trash2, Sparkles, ArrowUpRight, ArrowDownRight, Lock 
+  Download, Trash2, Sparkles, ArrowUpRight, ArrowDownRight 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -16,7 +16,6 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
     hover: 'hover:bg-[#1f1f1f]',
   };
 
-  // Strictly only Student Council and System Admin can add or delete financial records
   const effectiveRole = userProfile?.role || activeRole || 'student';
   const canEditFinance = effectiveRole === 'admin' || effectiveRole === 'council';
 
@@ -180,11 +179,6 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
           <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">
             Live Financial Ledger
           </span>
-          {!canEditFinance && (
-            <span className="ml-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-500/10 text-gray-400 border border-gray-500/20 flex items-center gap-1">
-              <Lock className="w-3 h-3" /> Read-Only View (Managed by Council & Admin)
-            </span>
-          )}
         </div>
 
         <button
@@ -195,7 +189,7 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
         </button>
       </div>
 
-      {/* Top 3 KPI Summary Cards (Visible to Everyone) */}
+      {/* Top 3 KPI Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
           <div className="flex items-center justify-between mb-3">
@@ -234,7 +228,7 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
         </div>
       </div>
 
-      {/* Admin & Student Council Entry Forms ONLY */}
+      {/* Admin & Student Council Entry Forms */}
       {canEditFinance && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
@@ -324,7 +318,7 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
         </div>
       )}
 
-      {/* TABLE 1: TREASURY INFLOWS & ADDITIONS LEDGER (Visible to Everyone) */}
+      {/* TABLE 1: TREASURY INFLOWS & ADDITIONS LEDGER */}
       <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
           <div>
@@ -332,7 +326,7 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
               <TrendingUp className="w-4 h-4 text-emerald-500" /> Treasury Inflows & Additions Ledger
             </h3>
             <p className={`text-xs ${safeTheme.textMuted} mt-0.5`}>
-              Every rupee added to the cohort treasury (Visible to all students; managed by Council & Admin)
+              Every rupee added to the cohort treasury
             </p>
           </div>
           <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -402,7 +396,7 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
         </div>
       </div>
 
-      {/* TABLE 2: EXPENSE & UTILIZATION LEDGER (Visible to Everyone) */}
+      {/* TABLE 2: EXPENSE & UTILIZATION LEDGER */}
       <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
           <div>
@@ -410,7 +404,7 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
               <TrendingDown className="w-4 h-4 text-amber-500" /> Cohort Expenses & Utilization Ledger
             </h3>
             <p className={`text-xs ${safeTheme.textMuted} mt-0.5`}>
-              Every expense spent from the cohort treasury (Visible to all students; managed by Council & Admin)
+              Every expense spent from the cohort treasury
             </p>
           </div>
           <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/20">

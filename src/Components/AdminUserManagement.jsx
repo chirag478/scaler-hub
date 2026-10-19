@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Users, CheckCircle2, AlertCircle, Sparkles, Shield } from 'lucide-react';
+import { UserPlus, Users, CheckCircle2, AlertCircle, Sparkles, Shield, Search, Trash2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export default function AdminUserManagement({ theme }) {
@@ -16,7 +16,9 @@ export default function AdminUserManagement({ theme }) {
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
+  // New Credential Form State
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +29,6 @@ export default function AdminUserManagement({ theme }) {
   const [creating, setCreating] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
-  // All 6 Official Clubs including Cultural & Sports
   const clubsList = [
     'Product Management Club',
     'Strategy Club',
@@ -129,12 +130,33 @@ export default function AdminUserManagement({ theme }) {
     }
   };
 
+  const handleDeleteUser = async (userId, userName) => {
+    if (!window.confirm(`Are you sure you want to delete ${userName}? This will remove their profile record.`)) return;
+
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      alert('Error deleting user profile: ' + error.message);
+    } else {
+      setUsers(users.filter(u => u.id !== userId));
+    }
+  };
+
   const getBadgeStyle = (role) => {
     if (role === 'admin') return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
     if (role === 'council') return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
     if (role === 'club_lead') return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
     return 'bg-gray-500/10 text-gray-300 border-gray-500/20';
   };
+
+  const filteredUsers = users.filter(u => 
+    u.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.organization?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -304,100 +326,130 @@ export default function AdminUserManagement({ theme }) {
           </form>
         </div>
 
-        {/* RIGHT COLUMN: COHORT & LEADERSHIP DIRECTORY */}
-        <div className={`lg:col-span-8 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
-          <h3 className={`text-base font-extrabold ${safeTheme.textStrong} mb-5 flex items-center gap-2`}>
-            <Users className="w-4 h-4 text-emerald-500" /> Cohort & Leadership Directory
-          </h3>
+        {/* RIGHT COLUMN: COHORT & LEADERSHIP DIRECTORY + SEARCH */}
+        <div className={`lg:col-span-8 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden space-y-5`}>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h3 className={`text-base font-extrabold ${safeTheme.textStrong} flex items-center gap-2`}>
+              <Users className="w-4 h-4 text-emerald-500" /> Cohort & Leadership Directory
+            </h3>
+
+            {/* LIVE SEARCH BAR */}
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by name, email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl pl-10 pr-4 py-2 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`}
+              />
+            </div>
+          </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[640px]">
               <thead>
                 <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider ${safeTheme.textMuted}`}>
-                  <th className="pb-3 pr-4 w-[32%]">Name & Email</th>
-                  <th className="pb-3 px-4 w-[36%]">Current Designation</th>
-                  <th className="pb-3 pl-4 text-right w-[32%]">Quick Role Override</th>
+                  <th className="pb-3 pr-4 w-[28%]">Name & Email</th>
+                  <th className="pb-3 px-4 w-[32%]">Current Designation</th>
+                  <th className="pb-3 px-4 text-right w-[32%]">Quick Role Override</th>
+                  <th className="pb-3 pl-2 text-right w-[8%]">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-500/10 text-xs">
-                {users.map((u) => {
-                  const displayOrg = u.organization === 'Cultural & Sports Committee' ? 'Cultural & Sports' : u.organization;
-                  const selectVal = `${u.role}|${u.sub_role}|${displayOrg}`;
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className={`py-8 text-center ${safeTheme.textMuted} font-semibold`}>
+                      No matching users found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((u) => {
+                    const displayOrg = u.organization === 'Cultural & Sports Committee' ? 'Cultural & Sports' : u.organization;
+                    const selectVal = `${u.role}|${u.sub_role}|${displayOrg}`;
 
-                  return (
-                    <tr key={u.id} className="hover:bg-gray-500/5 transition-colors">
-                      {/* Column 1: Name & Email */}
-                      <td className="py-4 pr-4 align-middle">
-                        <div className={`font-extrabold text-sm ${safeTheme.textStrong}`}>{u.full_name}</div>
-                        <div className={`text-[11px] ${safeTheme.textMuted} truncate max-w-[200px]`}>{u.email}</div>
-                      </td>
+                    return (
+                      <tr key={u.id} className="hover:bg-gray-500/5 transition-colors">
+                        <td className="py-4 pr-4 align-middle">
+                          <div className={`font-extrabold text-sm ${safeTheme.textStrong}`}>{u.full_name}</div>
+                          <div className={`text-[11px] ${safeTheme.textMuted} truncate max-w-[180px]`}>{u.email}</div>
+                        </td>
 
-                      {/* Column 2: Clean Non-Wrapping Badge Layout */}
-                      <td className="py-4 px-4 align-middle">
-                        <div className="flex flex-col items-start gap-1">
-                          <span 
-                            style={{ whiteSpace: 'nowrap' }}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider border ${getBadgeStyle(u.role)}`}
+                        <td className="py-4 px-4 align-middle">
+                          <div className="flex flex-col items-start gap-1">
+                            <span 
+                              style={{ whiteSpace: 'nowrap' }}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider border ${getBadgeStyle(u.role)}`}
+                            >
+                              <Shield className="w-3 h-3 shrink-0" />
+                              {u.sub_role}
+                            </span>
+                            <span className={`text-[11px] font-bold ${safeTheme.textMuted} pl-1`}>
+                              {displayOrg}
+                            </span>
+                          </div>
+                        </td>
+
+                        <td className="py-4 px-4 text-right align-middle">
+                          <select
+                            value={selectVal}
+                            onChange={(e) => {
+                              const [r, sr, org] = e.target.value.split('|');
+                              handleQuickRoleUpdate(u.id, r, sr, org);
+                            }}
+                            className={`${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2 text-xs font-bold ${safeTheme.textStrong} outline-none focus:border-emerald-500 transition-colors cursor-pointer w-full max-w-[220px]} ml-auto`}
                           >
-                            <Shield className="w-3 h-3 shrink-0" />
-                            {u.sub_role}
-                          </span>
-                          <span className={`text-[11px] font-bold ${safeTheme.textMuted} pl-1`}>
-                            {displayOrg}
-                          </span>
-                        </div>
-                      </td>
+                            <optgroup label="Student Cohort">
+                              <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
+                            </optgroup>
+                            <optgroup label="Student Council">
+                              <option value="council|President|Student Council">Council: President</option>
+                              <option value="council|Vice-President|Student Council">Council: Vice-President</option>
+                              <option value="council|Treasurer|Student Council">Council: Treasurer</option>
+                            </optgroup>
+                            <optgroup label="Product Management Club">
+                              <option value="club_lead|President|Product Management Club">Product Management Club: President</option>
+                              <option value="club_lead|Vice-President|Product Management Club">Product Management Club: Vice-President</option>
+                            </optgroup>
+                            <optgroup label="Strategy Club">
+                              <option value="club_lead|President|Strategy Club">Strategy Club: President</option>
+                              <option value="club_lead|Vice-President|Strategy Club">Strategy Club: Vice-President</option>
+                            </optgroup>
+                            <optgroup label="Marketing Club">
+                              <option value="club_lead|President|Marketing Club">Marketing Club: President</option>
+                              <option value="club_lead|Vice-President|Marketing Club">Marketing Club: Vice-President</option>
+                            </optgroup>
+                            <optgroup label="Entrepreneurship & VC Club">
+                              <option value="club_lead|President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: President</option>
+                              <option value="club_lead|Vice-President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: Vice-President</option>
+                            </optgroup>
+                            <optgroup label="Finance Club">
+                              <option value="club_lead|President|Finance Club">Finance Club: President</option>
+                              <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
+                            </optgroup>
+                            <optgroup label="Cultural & Sports">
+                              <option value="club_lead|President|Cultural & Sports">Cultural & Sports: President</option>
+                              <option value="club_lead|Vice-President|Cultural & Sports">Cultural & Sports: Vice-President</option>
+                            </optgroup>
+                            <optgroup label="System Administration">
+                              <option value="admin|System Admin|Administration">System Admin</option>
+                            </optgroup>
+                          </select>
+                        </td>
 
-                      {/* Column 3: Role Override Select */}
-                      <td className="py-4 pl-4 text-right align-middle">
-                        <select
-                          value={selectVal}
-                          onChange={(e) => {
-                            const [r, sr, org] = e.target.value.split('|');
-                            handleQuickRoleUpdate(u.id, r, sr, org);
-                          }}
-                          className={`${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2 text-xs font-bold ${safeTheme.textStrong} outline-none focus:border-emerald-500 transition-colors cursor-pointer w-full max-w-[240px]`}
-                        >
-                          <optgroup label="Student Cohort">
-                            <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
-                          </optgroup>
-                          <optgroup label="Student Council">
-                            <option value="council|President|Student Council">Council: President</option>
-                            <option value="council|Vice-President|Student Council">Council: Vice-President</option>
-                            <option value="council|Treasurer|Student Council">Council: Treasurer</option>
-                          </optgroup>
-                          <optgroup label="Product Management Club">
-                            <option value="club_lead|President|Product Management Club">Product Management Club: President</option>
-                            <option value="club_lead|Vice-President|Product Management Club">Product Management Club: Vice-President</option>
-                          </optgroup>
-                          <optgroup label="Strategy Club">
-                            <option value="club_lead|President|Strategy Club">Strategy Club: President</option>
-                            <option value="club_lead|Vice-President|Strategy Club">Strategy Club: Vice-President</option>
-                          </optgroup>
-                          <optgroup label="Marketing Club">
-                            <option value="club_lead|President|Marketing Club">Marketing Club: President</option>
-                            <option value="club_lead|Vice-President|Marketing Club">Marketing Club: Vice-President</option>
-                          </optgroup>
-                          <optgroup label="Entrepreneurship & VC Club">
-                            <option value="club_lead|President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: President</option>
-                            <option value="club_lead|Vice-President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: Vice-President</option>
-                          </optgroup>
-                          <optgroup label="Finance Club">
-                            <option value="club_lead|President|Finance Club">Finance Club: President</option>
-                            <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
-                          </optgroup>
-                          <optgroup label="Cultural & Sports">
-                            <option value="club_lead|President|Cultural & Sports">Cultural & Sports: President</option>
-                            <option value="club_lead|Vice-President|Cultural & Sports">Cultural & Sports: Vice-President</option>
-                          </optgroup>
-                          <optgroup label="System Administration">
-                            <option value="admin|System Admin|Administration">System Admin</option>
-                          </optgroup>
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <td className="py-4 pl-2 text-right align-middle">
+                          <button
+                            onClick={() => handleDeleteUser(u.id, u.full_name)}
+                            className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors ml-auto"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
