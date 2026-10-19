@@ -32,23 +32,28 @@ export default function EventCalendar({ theme, activeRole }) {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-  // --- FETCH EVENTS FROM SUPABASE ---
+  // --- FETCH & REALTIME SUBSCRIPTION ---
   useEffect(() => {
     fetchEvents();
-  }, []);
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .order('created_at', { ascending: true });
-    
-    if (!error && data) {
-      setCalendarEvents(data);
-    }
-    setLoading(false);
-  };
+    // Listen to real-time changes on calendar_events table
+    const subscription = supabase
+      .channel('public:calendar_events')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setCalendarEvents((prev) => [...prev, payload.new]);
+        } else if (payload.eventType === 'DELETE') {
+          setCalendarEvents((prev) => prev.filter((event) => event.id !== payload.old.id));
+        } else if (payload.eventType === 'UPDATE') {
+          setCalendarEvents((prev) => prev.map((event) => event.id === payload.new.id ? payload.new : event));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
 
   // --- ADD EVENT TO SUPABASE ---
   const handleAddCalendarEvent = async (e) => {
