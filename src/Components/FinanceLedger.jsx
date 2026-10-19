@@ -68,14 +68,20 @@ export default function FinanceLedger({ theme, activeRole }) {
     };
 
     const { data, error } = await supabase.from('transactions').insert([newTx]).select();
-    if (!error && data) {
+    
+    if (error) {
+      console.error("Supabase Error:", error);
+      alert("Database Error: " + error.message);
+      return;
+    }
+
+    if (data) {
       setTransactions([data[0], ...transactions]);
       setTxName('');
       setTxVendor('');
       setTxAmount('');
     }
   };
-
   const handleDeleteTransaction = async (id) => {
     const { error } = await supabase.from('transactions').delete().eq('id', id);
     if (!error) {
