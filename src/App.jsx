@@ -411,9 +411,9 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'forum' && (
-            <AnonymousForum theme={theme} activeRole={activeRole} userProfile={userProfile} />
-          )}
+         {activeTab === 'forum' && (
+  <AnonymousForum theme={theme} activeRole={activeRole} userProfile={userProfile} />
+)}
           {activeTab === 'users' && activeRole === 'admin' && (
   <AdminUserManagement theme={theme} />
 )}

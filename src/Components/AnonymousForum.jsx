@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, ThumbsUp, Send, ShieldAlert, CheckCircle2, Clock, Trash2, Sparkles, Filter } from 'lucide-react';
+import { MessageSquare, ThumbsUp, Send, ShieldAlert, CheckCircle2, Clock, Trash2, Sparkles, Filter, UserCheck } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export default function AnonymousForum({ theme, activeRole }) {
+export default function AnonymousForum({ theme, activeRole, userProfile }) {
   const isAdmin = activeRole === 'admin';
   const isCouncil = activeRole === 'council';
   const canModerate = isAdmin || isCouncil;
@@ -42,6 +42,7 @@ export default function AnonymousForum({ theme, activeRole }) {
     const newPost = {
       text: newPostText,
       author: 'Anonymous',
+      author_email: userProfile?.email || 'unknown@scaler.com', // Stored for Admin visibility
       category: newPostCategory,
       upvotes: 1,
       status: 'Under Review',
@@ -133,7 +134,7 @@ export default function AnonymousForum({ theme, activeRole }) {
           <textarea
             value={newPostText}
             onChange={(e) => setNewPostText(e.target.value)}
-            placeholder="Share feedback, ask a question, or report an issue... Your identity is 100% hidden."
+            placeholder="Share feedback, ask a question, or report an issue... Your identity is hidden from students."
             rows="3"
             required
             className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-4 py-3 text-sm ${theme.textStrong} focus:border-emerald-500 outline-none resize-none transition-all`}
@@ -192,6 +193,14 @@ export default function AnonymousForum({ theme, activeRole }) {
                     {post.status === 'Resolved' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                     {post.status}
                   </span>
+                  
+                  {/* ADMIN-ONLY REAL AUTHOR REVEAL */}
+                  {isAdmin && post.author_email && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/30 flex items-center gap-1">
+                      <UserCheck className="w-3 h-3" /> Real Author: {post.author_email}
+                    </span>
+                  )}
+
                   <span className={`text-xs ${theme.textMuted}`}>• Posted by {post.author}</span>
                 </div>
                 <p className={`text-sm font-medium ${theme.textStrong} leading-relaxed pt-1`}>{post.text}</p>
