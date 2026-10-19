@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, TrendingDown, Wallet, PlusCircle, FileText, 
-  Download, Trash2, Sparkles, ArrowUpRight, ArrowDownRight, Filter 
+  Download, Trash2, Sparkles, ArrowUpRight, ArrowDownRight 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -21,7 +21,6 @@ export default function FinanceLedger({ theme, activeRole }) {
   const [funds, setFunds] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [ledgerFilter, setLedgerFilter] = useState('all'); // 'all' | 'inflow' | 'expense'
 
   // Form states for Incoming Fund
   const [fundSource, setFundSource] = useState('');
@@ -81,26 +80,30 @@ export default function FinanceLedger({ theme, activeRole }) {
     e.preventDefault();
     if (!fundSource.trim() || !fundAmount) return;
 
+    const todayStr = new Date().toISOString().split('T')[0];
+
     const newFund = {
       source: fundSource.trim(),
       amount: Number(fundAmount),
-      date: new Date().toISOString().split('T')[0],
+      date: todayStr,
     };
 
     const { data, error } = await supabase.from('funds').insert([newFund]).select();
 
     if (error) {
-      // Fallback if 'source' column is named 'title' or 'description' in your schema
+      // Fallback if your 'funds' table uses 'description' or doesn't have 'date' column
       const fallbackFund = {
-        description: fundSource.trim(),
+        source: fundSource.trim(),
         amount: Number(fundAmount),
       };
       const retry = await supabase.from('funds').insert([fallbackFund]).select();
       if (retry.error) {
-        alert('Error adding fund: ' + error.message);
+        alert('Error adding fund: ' + retry.error.message);
         return;
       }
-      if (retry.data) setFunds((prev) => [retry.data[0], ...prev]);
+      if (retry.data) {
+        setFunds((prev) => [retry.data[0], ...prev.filter(f => f.id !== retry.data[0].id)]);
+      }
     } else if (data) {
       setFunds((prev) => [data[0], ...prev.filter(f => f.id !== data[0].id)]);
     }
@@ -137,14 +140,14 @@ export default function FinanceLedger({ theme, activeRole }) {
     }
   };
 
-  const handleDeleteEntry = async (entryType, id) => {
-    const tableName = entryType === 'inflow' ? 'funds' : 'transactions';
-    const { error } = await supabase.from(tableName).delete().eq('id', id);
+  const handleDeleteFund = async (id) => {
+    const { error } = await supabase.from('funds').delete().eq('id', id);
+    if (!error) setFunds(funds.filter(f => f.id !== id));
+  };
 
-    if (!error) {
-      if (entryType === 'inflow') setFunds(funds.filter(f => f.id !== id));
-      else setTransactions(transactions.filter(t => t.id !== id));
-    }
+  const handleDeleteTransaction = async (id) => {
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (!error) setTransactions(transactions.filter(t => t.id !== id));
   };
 
   // Totals Calculation
@@ -152,47 +155,24 @@ export default function FinanceLedger({ theme, activeRole }) {
   const totalUtilized = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
   const availableBalance = totalTreasury - totalUtilized;
 
-  // Combine both Funds (Inflows) and Transactions (Expenses) into one unified ledger list!
-  const unifiedLedger = [
-    ...funds.map((f) => ({
-      id: f.id,
-      entryType: 'inflow',
-      category: 'Treasury Inflow',
-      description: f.source || f.description || f.title || 'Cohort Fund / Sponsorship',
-      reference: 'Added to Treasury',
-      amount: Number(f.amount || 0),
-      date: f.date || (f.created_at ? f.created_at.split('T')[0] : 'Recorded'),
-      timestamp: f.created_at ? new Date(f.created_at).getTime() : 0,
-    })),
-    ...transactions.map((t) => ({
-      id: t.id,
-      entryType: 'expense',
-      category: t.category || 'General',
-      description: t.description || t.title || 'Cohort Expense',
-      reference: t.receipt || 'Verified',
-      amount: Number(t.amount || 0),
-      date: t.date || (t.created_at ? t.created_at.split('T')[0] : 'Recorded'),
-      timestamp: t.created_at ? new Date(t.created_at).getTime() : 0,
-    })),
-  ].sort((a, b) => b.timestamp - a.timestamp);
-
-  const filteredLedger = unifiedLedger.filter((item) => {
-    if (ledgerFilter === 'inflow') return item.entryType === 'inflow';
-    if (ledgerFilter === 'expense') return item.entryType === 'expense';
-    return true;
-  });
-
-  // Export Unified CSV (Both Inflows & Expenses)
+  // Export CSV
   const handleExportCSV = () => {
-    const headers = ['Type,Category,Description,Reference,Date,Amount (INR)\n'];
-    const rows = unifiedLedger.map(item => 
-      `${item.entryType === 'inflow' ? 'CREDIT (+)' : 'DEBIT (-)'},"${item.category}","${item.description}","${item.reference}",${item.date},${item.entryType === 'inflow' ? item.amount : -item.amount}`
-    );
-    const blob = new Blob([headers.concat(rows.join('\n'))], { type: 'text/csv' });
+    const headers = ['Type,Category/Source,Description,Reference,Date,Amount (INR)\n'];
+    const fundRows = funds.map(f => {
+      const src = f.source || f.description || f.title || 'Treasury Inflow';
+      const dt = f.date || (f.created_at ? f.created_at.split('T')[0] : '');
+      return `TREASURY INFLOW (+),"Treasury Addition","${src}","Verified Deposit",${dt},${f.amount}`;
+    });
+    const txRows = transactions.map(t => {
+      const dt = t.date || (t.created_at ? t.created_at.split('T')[0] : '');
+      return `EXPENSE (-),"${t.category || 'General'}","${t.description || ''}","${t.receipt || 'Verified'}",${dt},-${t.amount}`;
+    });
+
+    const blob = new Blob([headers.concat([...fundRows, ...txRows].join('\n'))], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Scaler_Transparency_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `Scaler_Finance_Ledger_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
 
@@ -206,6 +186,7 @@ export default function FinanceLedger({ theme, activeRole }) {
           <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">
             Live Financial Ledger
           </span>
+          {loading && <span className={`text-xs font-semibold animate-pulse ml-2 ${safeTheme.textMuted}`}>Syncing...</span>}
         </div>
 
         <button
@@ -309,6 +290,7 @@ export default function FinanceLedger({ theme, activeRole }) {
                   <option value="Club Ops">Club Ops</option>
                   <option value="Marketing">Marketing</option>
                   <option value="Refreshments">Refreshments</option>
+                  <option value="Cultural & Sports">Cultural & Sports</option>
                   <option value="Misc">Misc</option>
                 </select>
                 <input
@@ -347,106 +329,157 @@ export default function FinanceLedger({ theme, activeRole }) {
         </div>
       )}
 
-      {/* UNIFIED LEDGER TABLE (Shows BOTH Treasury Additions and Expenses) */}
-      <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-x-auto`}>
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      {/* TABLE 1: DEDICATED TREASURY INFLOWS & ADDITIONS TABLE */}
+      <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
           <div>
-            <h3 className={`text-base font-extrabold ${safeTheme.textStrong}`}>
-              Complete Transaction & Treasury History
+            <h3 className={`text-base font-extrabold ${safeTheme.textStrong} flex items-center gap-2`}>
+              <TrendingUp className="w-4 h-4 text-emerald-500" /> Treasury Inflows & Additions Ledger
             </h3>
-            <p className={`text-xs ${safeTheme.textMuted}`}>
-              Every rupee added to the treasury and spent by the council is logged below
+            <p className={`text-xs ${safeTheme.textMuted} mt-0.5`}>
+              Tracks all funds, sponsorships, and budget allocations added to the cohort treasury
             </p>
           </div>
-
-          {/* Filter Pills */}
-          <div className="flex items-center gap-1.5">
-            <Filter className={`w-3.5 h-3.5 ${safeTheme.textMuted} mr-1`} />
-            {[
-              { id: 'all', label: 'All Entries' },
-              { id: 'inflow', label: 'Treasury Inflows (+)' },
-              { id: 'expense', label: 'Expenses (-)' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setLedgerFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                  ledgerFilter === tab.id
-                    ? 'bg-emerald-500 text-white'
-                    : `${safeTheme.inputBg} ${safeTheme.textMuted} hover:${safeTheme.textStrong}`
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            {funds.length} {funds.length === 1 ? 'Deposit' : 'Deposits'}
+          </span>
         </div>
 
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider ${safeTheme.textMuted}`}>
-              <th className="pb-3 pr-4">Type / Category</th>
-              <th className="pb-3 px-4">Description / Source</th>
-              <th className="pb-3 px-4">Reference</th>
-              <th className="pb-3 px-4">Date</th>
-              <th className="pb-3 pl-4 text-right">Amount</th>
-              {canEditFinance && <th className="pb-3 pl-4 text-right">Action</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-500/10 text-xs">
-            {filteredLedger.length === 0 ? (
-              <tr>
-                <td colSpan={6} className={`py-8 text-center ${safeTheme.textMuted} font-semibold`}>
-                  No financial records found. Add funds or log an expense above!
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[540px]">
+            <thead>
+              <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider ${safeTheme.textMuted}`}>
+                <th className="pb-3 pr-4">Type</th>
+                <th className="pb-3 px-4">Funding Source / Sponsor</th>
+                <th className="pb-3 px-4">Date Recorded</th>
+                <th className="pb-3 pl-4 text-right">Amount Added</th>
+                {canEditFinance && <th className="pb-3 pl-4 text-right">Action</th>}
               </tr>
-            ) : (
-              filteredLedger.map((item) => {
-                const isCredit = item.entryType === 'inflow';
-                return (
-                  <tr key={`${item.entryType}-${item.id}`} className="hover:bg-gray-500/5 transition-colors">
-                    <td className="py-4 pr-4">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                        isCredit
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                      }`}>
-                        {isCredit ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                        {item.category}
-                      </span>
-                    </td>
-                    <td className={`py-4 px-4 font-extrabold ${safeTheme.textStrong}`}>
-                      {item.description}
-                    </td>
-                    <td className={`py-4 px-4 ${safeTheme.textMuted}`}>
-                      {item.reference}
-                    </td>
-                    <td className={`py-4 px-4 ${safeTheme.textMuted}`}>
-                      {item.date}
-                    </td>
-                    <td className={`py-4 pl-4 text-right font-extrabold text-sm ${
-                      isCredit ? 'text-emerald-400' : 'text-red-400'
-                    }`}>
-                      {isCredit ? '+' : '-'}₹{item.amount.toLocaleString('en-IN')}
-                    </td>
-                    {canEditFinance && (
-                      <td className="py-4 pl-4 text-right">
-                        <button
-                          onClick={() => handleDeleteEntry(item.entryType, item.id)}
-                          className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
-                          title="Delete Entry"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+            </thead>
+            <tbody className="divide-y divide-gray-500/10 text-xs">
+              {funds.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className={`py-8 text-center ${safeTheme.textMuted} font-semibold`}>
+                    No treasury additions recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                funds.map((f) => {
+                  const sourceLabel = f.source || f.description || f.title || 'Cohort Treasury Allocation';
+                  const dateLabel = f.date || (f.created_at ? f.created_at.split('T')[0] : 'Verified');
+                  return (
+                    <tr key={f.id} className="hover:bg-gray-500/5 transition-colors">
+                      <td className="py-4 pr-4 align-middle">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                          <ArrowUpRight className="w-3 h-3 shrink-0" /> Treasury Inflow
+                        </span>
                       </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      <td className={`py-4 px-4 font-extrabold ${safeTheme.textStrong} align-middle`}>
+                        {sourceLabel}
+                      </td>
+                      <td className={`py-4 px-4 ${safeTheme.textMuted} align-middle whitespace-nowrap`}>
+                        {dateLabel}
+                      </td>
+                      <td className="py-4 pl-4 text-right font-extrabold text-sm text-emerald-400 align-middle whitespace-nowrap">
+                        +₹{Number(f.amount || 0).toLocaleString('en-IN')}
+                      </td>
+                      {canEditFinance && (
+                        <td className="py-4 pl-4 text-right align-middle">
+                          <button
+                            onClick={() => handleDeleteFund(f.id)}
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
+                            title="Delete Treasury Record"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* TABLE 2: DEDICATED EXPENSE TRANSACTIONS TABLE */}
+      <div className={`${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+          <div>
+            <h3 className={`text-base font-extrabold ${safeTheme.textStrong} flex items-center gap-2`}>
+              <TrendingDown className="w-4 h-4 text-amber-500" /> Cohort Expense & Utilization Ledger
+            </h3>
+            <p className={`text-xs ${safeTheme.textMuted} mt-0.5`}>
+              Itemized breakdown of all council and club expenditures with verification references
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            {transactions.length} {transactions.length === 1 ? 'Expense' : 'Expenses'}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+              <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider ${safeTheme.textMuted}`}>
+                <th className="pb-3 pr-4">Category</th>
+                <th className="pb-3 px-4">Expense Description</th>
+                <th className="pb-3 px-4">Receipt / Reference</th>
+                <th className="pb-3 px-4">Date</th>
+                <th className="pb-3 pl-4 text-right">Amount Spent</th>
+                {canEditFinance && <th className="pb-3 pl-4 text-right">Action</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-500/10 text-xs">
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className={`py-8 text-center ${safeTheme.textMuted} font-semibold`}>
+                    No expenses recorded yet.
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((t) => {
+                  const dateLabel = t.date || (t.created_at ? t.created_at.split('T')[0] : 'Verified');
+                  return (
+                    <tr key={t.id} className="hover:bg-gray-500/5 transition-colors">
+                      <td className="py-4 pr-4 align-middle">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap">
+                          <ArrowDownRight className="w-3 h-3 shrink-0" /> {t.category || 'General'}
+                        </span>
+                      </td>
+                      <td className={`py-4 px-4 font-extrabold ${safeTheme.textStrong} align-middle`}>
+                        {t.description || t.title}
+                      </td>
+                      <td className={`py-4 px-4 ${safeTheme.textMuted} align-middle`}>
+                        {t.receipt || 'Verified'}
+                      </td>
+                      <td className={`py-4 px-4 ${safeTheme.textMuted} align-middle whitespace-nowrap`}>
+                        {dateLabel}
+                      </td>
+                      <td className="py-4 pl-4 text-right font-extrabold text-sm text-red-400 align-middle whitespace-nowrap">
+                        -₹{Number(t.amount || 0).toLocaleString('en-IN')}
+                      </td>
+                      {canEditFinance && (
+                        <td className="py-4 pl-4 text-right align-middle">
+                          <button
+                            onClick={() => handleDeleteTransaction(t.id)}
+                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
+                            title="Delete Expense"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   );
 }

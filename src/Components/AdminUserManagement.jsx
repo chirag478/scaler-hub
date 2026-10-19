@@ -4,6 +4,16 @@ import { UserPlus, Users, CheckCircle2, AlertCircle, Sparkles } from 'lucide-rea
 import { supabase } from '../supabaseClient';
 
 export default function AdminUserManagement({ theme }) {
+  const safeTheme = theme || {
+    bg: 'bg-[#0a0a0a]',
+    surface: 'bg-[#121212]',
+    border: 'border-[#262626]',
+    textStrong: 'text-white',
+    textMuted: 'text-gray-400',
+    inputBg: 'bg-[#1a1a1a]',
+    hover: 'hover:bg-[#1f1f1f]',
+  };
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,13 +28,14 @@ export default function AdminUserManagement({ theme }) {
   const [creating, setCreating] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
-  // Exact 5 Clubs
+  // All 6 Official Clubs
   const clubsList = [
     'Product Management Club',
     'Strategy Club',
     'Marketing Club',
     'Entrepreneurship & VC Club',
-    'Finance Club'
+    'Finance Club',
+    'Cultural & Sports'
   ];
 
   useEffect(() => {
@@ -95,7 +106,7 @@ export default function AdminUserManagement({ theme }) {
 
       setStatusMsg({
         type: 'success',
-        text: `Credentials created for ${fullName} (${finalSubRole} • ${finalOrg})!`
+        text: `Credentials created for ${fullName} (${finalSubRole} •${finalOrg})!`
       });
 
       setFullName('');
@@ -120,30 +131,39 @@ export default function AdminUserManagement({ theme }) {
     }
   };
 
+  const getBadgeStyle = (role) => {
+    if (role === 'admin') return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+    if (role === 'council') return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    if (role === 'club_lead') return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+    return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-emerald-500" />
           <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">
             System Admin • Role & Credential Provisioning
           </span>
         </div>
-        <span className={`text-xs font-bold ${theme.textMuted}`}>{users.length} Registered Accounts</span>
+        <span className={`text-xs font-bold ${safeTheme.textMuted}`}>
+          {loading ? 'Syncing directory...' : `${users.length} Registered Accounts`}
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         
-        {/* LEFT COLUMN: CREATE CREDENTIALS FORM */}
-        <div className={`lg:col-span-1 ${theme.surface} border ${theme.border} rounded-2xl p-6 h-fit shadow-sm`}>
+        {/* LEFT COLUMN: CREATE CREDENTIALS FORM (4 cols on XL) */}
+        <div className={`xl:col-span-4 ${safeTheme.surface} border${safeTheme.border} rounded-2xl p-6 shadow-sm`}>
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <UserPlus className="w-5 h-5 text-emerald-500" />
             </div>
             <div>
-              <h3 className={`text-base font-extrabold ${theme.textStrong}`}>Issue New Credentials</h3>
-              <p className={`text-[11px] ${theme.textMuted}`}>Create Council, Club, or Admin logins</p>
+              <h3 className={`text-base font-extrabold ${safeTheme.textStrong}`}>Issue New Credentials</h3>
+              <p className={`text-[11px] ${safeTheme.textMuted}`}>Create Council, Club, or Admin logins</p>
             </div>
           </div>
 
@@ -160,7 +180,7 @@ export default function AdminUserManagement({ theme }) {
 
           <form onSubmit={handleCreateCredential} className="space-y-4">
             <div>
-              <label className={`block text-[11px] font-bold ${theme.textMuted} uppercase tracking-wider mb-1`}>
+              <label className={`block text-[11px] font-bold ${safeTheme.textMuted} uppercase tracking-wider mb-1`}>
                 Full Name
               </label>
               <input
@@ -169,36 +189,36 @@ export default function AdminUserManagement({ theme }) {
                 placeholder="e.g. Abhijeet"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-3.5 py-2.5 text-xs ${theme.textStrong} outline-none focus:border-emerald-500`}
+                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs${safeTheme.textStrong} outline-none focus:border-emerald-500`}
               />
             </div>
 
             <div>
-              <label className={`block text-[11px] font-bold ${theme.textMuted} uppercase tracking-wider mb-1`}>
+              <label className={`block text-[11px] font-bold ${safeTheme.textMuted} uppercase tracking-wider mb-1`}>
                 Login Email
               </label>
               <input
                 type="email"
                 required
-                placeholder="admin@ssb.scaler.com"
+                placeholder="leader@ssb.scaler.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-3.5 py-2.5 text-xs ${theme.textStrong} outline-none focus:border-emerald-500`}
+                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs${safeTheme.textStrong} outline-none focus:border-emerald-500`}
               />
             </div>
 
             <div>
-              <label className={`block text-[11px] font-bold ${theme.textMuted} uppercase tracking-wider mb-1`}>
+              <label className={`block text-[11px] font-bold ${safeTheme.textMuted} uppercase tracking-wider mb-1`}>
                 Assign Password
               </label>
               <input
                 type="text"
                 required
                 minLength={6}
-                placeholder="e.g. Council@2026"
+                placeholder="e.g. Scaler@2026"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-3.5 py-2.5 text-xs ${theme.textStrong} outline-none focus:border-emerald-500`}
+                className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3.5 py-2.5 text-xs${safeTheme.textStrong} outline-none focus:border-emerald-500`}
               />
             </div>
 
@@ -220,7 +240,7 @@ export default function AdminUserManagement({ theme }) {
                     className={`py-2 px-3 rounded-xl text-xs font-bold border text-left transition-all ${
                       roleGroup === item.id
                         ? 'bg-emerald-500 text-white border-emerald-500'
-                        : `${theme.inputBg} ${theme.border}${theme.textMuted}`
+                        : `${safeTheme.inputBg} ${safeTheme.border} ${safeTheme.textMuted}`
                     }`}
                   >
                     {item.label}
@@ -230,13 +250,13 @@ export default function AdminUserManagement({ theme }) {
 
               {roleGroup === 'council' && (
                 <div>
-                  <label className={`block text-[11px] font-bold ${theme.textMuted} uppercase tracking-wider mb-1`}>
+                  <label className={`block text-[11px] font-bold ${safeTheme.textMuted} uppercase tracking-wider mb-1`}>
                     Council Position
                   </label>
                   <select
                     value={subRole}
                     onChange={(e) => setSubRole(e.target.value)}
-                    className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-3 py-2.5 text-xs font-bold ${theme.textStrong} outline-none`}
+                    className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold${safeTheme.textStrong} outline-none`}
                   >
                     <option value="President">President</option>
                     <option value="Vice-President">Vice-President</option>
@@ -248,25 +268,25 @@ export default function AdminUserManagement({ theme }) {
               {roleGroup === 'club_lead' && (
                 <div className="space-y-3">
                   <div>
-                    <label className={`block text-[11px] font-bold ${theme.textMuted} uppercase tracking-wider mb-1`}>
+                    <label className={`block text-[11px] font-bold ${safeTheme.textMuted} uppercase tracking-wider mb-1`}>
                       Select Club
                     </label>
                     <select
                       value={clubName}
                       onChange={(e) => setClubName(e.target.value)}
-                      className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-3 py-2.5 text-xs font-bold ${theme.textStrong} outline-none`}
+                      className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold${safeTheme.textStrong} outline-none`}
                     >
                       {clubsList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className={`block text-[11px] font-bold ${theme.textMuted} uppercase tracking-wider mb-1`}>
+                    <label className={`block text-[11px] font-bold ${safeTheme.textMuted} uppercase tracking-wider mb-1`}>
                       Club Role
                     </label>
                     <select
                       value={subRole}
                       onChange={(e) => setSubRole(e.target.value)}
-                      className={`w-full ${theme.inputBg} border ${theme.border} rounded-xl px-3 py-2.5 text-xs font-bold ${theme.textStrong} outline-none`}
+                      className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs font-bold${safeTheme.textStrong} outline-none`}
                     >
                       <option value="President">President</option>
                       <option value="Vice-President">Vice-President</option>
@@ -286,83 +306,94 @@ export default function AdminUserManagement({ theme }) {
           </form>
         </div>
 
-        {/* RIGHT COLUMN: DIRECTORY OF ALL USERS & QUICK ROLE ASSIGNER */}
-        <div className={`lg:col-span-2 ${theme.surface} border ${theme.border} rounded-2xl p-6 overflow-x-auto shadow-sm`}>
-          <h3 className={`text-base font-extrabold ${theme.textStrong} mb-4 flex items-center gap-2`}>
+        {/* RIGHT COLUMN: RESPONSIVE DIRECTORY & QUICK ROLE OVERRIDE (8 cols on XL) */}
+        <div className={`xl:col-span-8 ${safeTheme.surface} border${safeTheme.border} rounded-2xl p-6 shadow-sm overflow-hidden`}>
+          <h3 className={`text-base font-extrabold ${safeTheme.textStrong} mb-5 flex items-center gap-2`}>
             <Users className="w-4 h-4 text-emerald-500" /> Cohort & Leadership Directory
           </h3>
 
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className={`border-b ${theme.border} text-[11px] font-extrabold uppercase tracking-wider ${theme.textMuted}`}>
-                <th className="pb-3 pr-4">Name & Email</th>
-                <th className="pb-3 px-4">Current Designation</th>
-                <th className="pb-3 pl-4 text-right">Quick Role Override</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-500/10 text-xs">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-500/5 transition-colors">
-                  <td className="py-3.5 pr-4">
-                    <div className={`font-extrabold ${theme.textStrong}`}>{u.full_name}</div>
-                    <div className={`text-[11px] ${theme.textMuted}`}>{u.email}</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
-                      u.role === 'admin' ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30' :
-                      u.role === 'council' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
-                      u.role === 'club_lead' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
-                      'bg-gray-500/10 text-gray-400'
-                    }`}>
-                      {u.sub_role} • {u.organization}
-                    </span>
-                  </td>
-                  <td className="py-3.5 pl-4 text-right">
-                    <select
-                      value={`${u.role}|${u.sub_role}|${u.organization}`}
-                      onChange={(e) => {
-                        const [r, sr, org] = e.target.value.split('|');
-                        handleQuickRoleUpdate(u.id, r, sr, org);
-                      }}
-                      className={`${theme.inputBg} border ${theme.border} rounded-lg px-2.5 py-1.5 text-[11px] font-bold ${theme.textStrong} outline-none`}
-                    >
-                      <optgroup label="Student Cohort">
-                        <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
-                      </optgroup>
-                      <optgroup label="Student Council">
-                        <option value="council|President|Student Council">Council: President</option>
-                        <option value="council|Vice-President|Student Council">Council: Vice-President</option>
-                        <option value="council|Treasurer|Student Council">Council: Treasurer</option>
-                      </optgroup>
-                      <optgroup label="Product Management Club">
-                        <option value="club_lead|President|Product Management Club">Product Management Club: President</option>
-                        <option value="club_lead|Vice-President|Product Management Club">Product Management Club: Vice-President</option>
-                      </optgroup>
-                      <optgroup label="Strategy Club">
-                        <option value="club_lead|President|Strategy Club">Strategy Club: President</option>
-                        <option value="club_lead|Vice-President|Strategy Club">Strategy Club: Vice-President</option>
-                      </optgroup>
-                      <optgroup label="Marketing Club">
-                        <option value="club_lead|President|Marketing Club">Marketing Club: President</option>
-                        <option value="club_lead|Vice-President|Marketing Club">Marketing Club: Vice-President</option>
-                      </optgroup>
-                      <optgroup label="Entrepreneurship & VC Club">
-                        <option value="club_lead|President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: President</option>
-                        <option value="club_lead|Vice-President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: Vice-President</option>
-                      </optgroup>
-                      <optgroup label="Finance Club">
-                        <option value="club_lead|President|Finance Club">Finance Club: President</option>
-                        <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
-                      </optgroup>
-                      <optgroup label="System Administration">
-                        <option value="admin|System Admin|Administration">System Admin</option>
-                      </optgroup>
-                    </select>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[620px]">
+              <thead>
+                <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider${safeTheme.textMuted}`}>
+                  <th className="pb-3 pr-4">Name & Email</th>
+                  <th className="pb-3 px-4">Current Designation</th>
+                  <th className="pb-3 pl-4 text-right">Quick Role Override</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-500/10 text-xs">
+                {users.map((u) => {
+                  // Normalize legacy 'Cultural & Sports Committee' into 'Cultural & Sports' if needed
+                  const displayOrg = u.organization === 'Cultural & Sports Committee' ? 'Cultural & Sports' : u.organization;
+                  const selectVal = `${u.role}|${u.sub_role}\vert{}${displayOrg}`;
+
+                  return (
+                    <tr key={u.id} className="hover:bg-gray-500/5 transition-colors">
+                      <td className="py-4 pr-4 align-middle">
+                        <div className={`font-extrabold ${safeTheme.textStrong} leading-snug`}>{u.full_name}</div>
+                        <div className={`text-[11px] ${safeTheme.textMuted} truncate max-w-[200px]`}>{u.email}</div>
+                      </td>
+
+                      {/* Fixed Responsive Badge: inline-flex + whitespace-nowrap prevents broken multi-line borders */}
+                      <td className="py-4 px-4 align-middle">
+                        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider border whitespace-nowrap ${getBadgeStyle(u.role)}`}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80 shrink-0" />
+                          <span>{u.sub_role} • {displayOrg}</span>
+                        </div>
+                      </td>
+
+                      <td className="py-4 pl-4 text-right align-middle">
+                        <select
+                          value={selectVal}
+                          onChange={(e) => {
+                            const [r, sr, org] = e.target.value.split('|');
+                            handleQuickRoleUpdate(u.id, r, sr, org);
+                          }}
+                          className={`${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2 text-[11px] font-bold${safeTheme.textStrong} outline-none focus:border-emerald-500 transition-colors cursor-pointer max-w-[230px] w-full`}
+                        >
+                          <optgroup label="Student Cohort">
+                            <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
+                          </optgroup>
+                          <optgroup label="Student Council">
+                            <option value="council|President|Student Council">Council: President</option>
+                            <option value="council|Vice-President|Student Council">Council: Vice-President</option>
+                            <option value="council|Treasurer|Student Council">Council: Treasurer</option>
+                          </optgroup>
+                          <optgroup label="Product Management Club">
+                            <option value="club_lead|President|Product Management Club">Product Management Club: President</option>
+                            <option value="club_lead|Vice-President|Product Management Club">Product Management Club: Vice-President</option>
+                          </optgroup>
+                          <optgroup label="Strategy Club">
+                            <option value="club_lead|President|Strategy Club">Strategy Club: President</option>
+                            <option value="club_lead|Vice-President|Strategy Club">Strategy Club: Vice-President</option>
+                          </optgroup>
+                          <optgroup label="Marketing Club">
+                            <option value="club_lead|President|Marketing Club">Marketing Club: President</option>
+                            <option value="club_lead|Vice-President|Marketing Club">Marketing Club: Vice-President</option>
+                          </optgroup>
+                          <optgroup label="Entrepreneurship & VC Club">
+                            <option value="club_lead|President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: President</option>
+                            <option value="club_lead|Vice-President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: Vice-President</option>
+                          </optgroup>
+                          <optgroup label="Finance Club">
+                            <option value="club_lead|President|Finance Club">Finance Club: President</option>
+                            <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
+                          </optgroup>
+                          <optgroup label="Cultural & Sports">
+                            <option value="club_lead|President|Cultural & Sports">Cultural & Sports: President</option>
+                            <option value="club_lead|Vice-President|Cultural & Sports">Cultural & Sports: Vice-President</option>
+                          </optgroup>
+                          <optgroup label="System Administration">
+                            <option value="admin|System Admin|Administration">System Admin</option>
+                          </optgroup>
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
       </div>
