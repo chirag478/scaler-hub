@@ -10,6 +10,7 @@ export default function AuthScreen({ onAuthSuccess }) {
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const isValidScalerEmail = (mail) => {
     return mail.trim().toLowerCase().endsWith('@ssb.scaler.com');
@@ -18,6 +19,7 @@ export default function AuthScreen({ onAuthSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
 
     const cleanEmail = email.trim().toLowerCase();
 
@@ -36,7 +38,7 @@ export default function AuthScreen({ onAuthSuccess }) {
           password,
         });
         if (error) throw error;
-        if (onAuthSuccess) onAuthSuccess(data.user);
+        if (onAuthSuccess && data?.user) onAuthSuccess(data.user);
       } else {
         // Public signup strictly creates Student accounts only
         const { data, error } = await supabase.auth.signUp({
@@ -52,7 +54,14 @@ export default function AuthScreen({ onAuthSuccess }) {
           },
         });
         if (error) throw error;
-        if (onAuthSuccess) onAuthSuccess(data.user);
+
+        // Sign out any auto-session so the user sees the success message and logs in cleanly
+        await supabase.auth.signOut();
+
+        setSuccessMsg('Account created successfully! Please sign in below with your new credentials.');
+        setPassword('');
+        setFullName('');
+        setIsLogin(true);
       }
     } catch (err) {
       setErrorMsg(err.message || 'Authentication failed. Please check your credentials.');
@@ -89,7 +98,7 @@ export default function AuthScreen({ onAuthSuccess }) {
         <div className="grid grid-cols-2 gap-1 p-1 bg-[#1a1a1a] rounded-xl border border-[#262626] mb-6">
           <button
             type="button"
-            onClick={() => { setIsLogin(true); setErrorMsg(''); }}
+            onClick={() => { setIsLogin(true); setErrorMsg(''); setSuccessMsg(''); }}
             className={`py-2.5 text-xs font-extrabold rounded-lg transition-all ${
               isLogin ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-400 hover:text-white'
             }`}
@@ -98,7 +107,7 @@ export default function AuthScreen({ onAuthSuccess }) {
           </button>
           <button
             type="button"
-            onClick={() => { setIsLogin(false); setErrorMsg(''); }}
+            onClick={() => { setIsLogin(false); setErrorMsg(''); setSuccessMsg(''); }}
             className={`py-2.5 text-xs font-extrabold rounded-lg transition-all ${
               !isLogin ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-400 hover:text-white'
             }`}
@@ -107,10 +116,19 @@ export default function AuthScreen({ onAuthSuccess }) {
           </button>
         </div>
 
+        {/* Error Notification */}
         {errorMsg && (
-          <div className="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-red-400 text-xs font-semibold">
+          <div className="mb-5 p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-red-400 text-xs font-semibold animate-in fade-in duration-200">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
+          </div>
+        )}
+
+        {/* Success Notification */}
+        {successMsg && (
+          <div className="mb-5 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2.5 text-emerald-400 text-xs font-semibold animate-in fade-in duration-200">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{successMsg}</span>
           </div>
         )}
 
@@ -179,7 +197,7 @@ export default function AuthScreen({ onAuthSuccess }) {
             disabled={loading}
             className="w-full bg-[#0A8647] hover:bg-[#0c9d54] disabled:opacity-50 text-white font-extrabold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20 mt-4"
           >
-            {loading ? 'Authenticating...' : isLogin ? 'Sign In to Hub' : 'Verify & Create Student Account'}
+            {loading ? 'Processing...' : isLogin ? 'Sign In to Hub' : 'Verify & Create Student Account'}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
