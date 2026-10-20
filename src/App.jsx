@@ -145,9 +145,13 @@ export default function App() {
     };
   }, [session]);
 
-  const addNotification = (title, message) => {
+const addNotification = (title, message) => {
     const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setNotifications(prev => [{ id: Date.now(), title, message, time: timeString }, ...prev]);
+    setNotifications(prev => {
+      const newNotifs = [{ id: Date.now(), title, message, time: timeString }, ...prev];
+      // Slice the array to keep only the 4 most recent notifications
+      return newNotifs.slice(0, 4); 
+    });
     setUnreadCount(prev => prev + 1);
   };
 
