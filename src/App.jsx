@@ -20,7 +20,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isDark, setIsDark] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Realtime Notification State
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [stats, setStats] = useState({
     totalFunds: 0,
@@ -63,9 +67,8 @@ export default function App() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session?.user) {
-        fetchUserProfile(session.user);
-      } else {
+      if (session?.user) fetchUserProfile(session.user);
+      else {
         setUserProfile(null);
         setActiveRole('student');
         setAuthLoading(false);
@@ -76,12 +79,7 @@ export default function App() {
   }, []);
 
   const fetchUserProfile = async (user) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
     if (!error && data) {
       setUserProfile(data);
       setActiveRole(data.role);
@@ -99,10 +97,14 @@ export default function App() {
     setAuthLoading(false);
   };
 
+  // -------------------------------------------------------------
+  // REAL-TIME CLOUD SYNC: Stats & Notifications
+  // -------------------------------------------------------------
   useEffect(() => {
     if (!session) return;
     fetchOverviewStats();
 
+    // 1. Sync Dashboard Stats
     const overviewSub = supabase
       .channel('overview-sync')
       .on('postgres_changes', { event: '*', schema: 'public' }, () => {
@@ -110,10 +112,49 @@ export default function App() {
       })
       .subscribe();
 
+    // 2. Listen for New Calendar Events
+    const calendarSub = supabase
+      .channel('notif-calendar')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'calendar_events' }, (payload) => {
+        addNotification('New Event Scheduled', `${payload.new.name} on ${payload.new.date}`);
+      }).subscribe();
+
+    // 3. Listen for Council Replies on the Forum
+    const forumUpdateSub = supabase
+      .channel('notif-forum-updates')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'forum_posts' }, (payload) => {
+        // If a reply was just added, notify the cohort
+        if (payload.new.reply && !payload.old.reply) {
+          addNotification('Official Council Reply', `A response was added to: "${payload.new.text.substring(0, 30)}..."`);
+        }
+      }).subscribe();
+
+    // 4. Listen for New Polls & Posts
+    const forumInsertSub = supabase
+      .channel('notif-forum-inserts')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'forum_posts' }, (payload) => {
+        const title = payload.new.is_poll ? 'New Cohort Poll' : 'New Townhall Post';
+        addNotification(title, `"${payload.new.text.substring(0, 30)}..."`);
+      }).subscribe();
+
     return () => {
       supabase.removeChannel(overviewSub);
+      supabase.removeChannel(calendarSub);
+      supabase.removeChannel(forumUpdateSub);
+      supabase.removeChannel(forumInsertSub);
     };
   }, [session]);
+
+  const addNotification = (title, message) => {
+    const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setNotifications(prev => [{ id: Date.now(), title, message, time: timeString }, ...prev]);
+    setUnreadCount(prev => prev + 1);
+  };
+
+  const handleOpenNotifications = () => {
+    setNotificationsOpen(!notificationsOpen);
+    if (!notificationsOpen) setUnreadCount(0); // Clear unread dot when opening tray
+  };
 
   const fetchOverviewStats = async () => {
     const [fundsRes, txRes, eventsRes, postsRes] = await Promise.all([
@@ -138,9 +179,7 @@ export default function App() {
     });
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
+  const handleLogout = async () => await supabase.auth.signOut();
 
   if (authLoading) {
     return (
@@ -153,9 +192,7 @@ export default function App() {
     );
   }
 
-  if (!session) {
-    return <AuthScreen onAuthSuccess={(user) => fetchUserProfile(user)} />;
-  }
+  if (!session) return <AuthScreen onAuthSuccess={(user) => fetchUserProfile(user)} />;
 
   const navItems = [
     { id: 'overview', label: 'Hub Overview', icon: Home },
@@ -178,7 +215,7 @@ export default function App() {
         />
       )}
 
-      {/* RESPONSIVE SIDEBAR (Slide-over on Mobile, Fixed on Desktop) */}
+      {/* RESPONSIVE SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 transform ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out w-64 ${theme.surface} border-r ${theme.border} flex flex-col shrink-0 z-50`}>
         <div className={`h-16 flex items-center justify-between px-5 border-b ${theme.border} shrink-0`}>
           <div className="flex items-center gap-3">
@@ -202,14 +239,9 @@ export default function App() {
             return (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setMobileMenuOpen(false);
-                }}
+                onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
-                  isActive
-                    ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 shadow-sm'
-                    : `${theme.textMuted} ${theme.hover} hover:${theme.textStrong}`
+                  isActive ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 shadow-sm' : `${theme.textMuted} ${theme.hover} hover:${theme.textStrong}`
                 }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-500' : ''}`} />
@@ -219,15 +251,12 @@ export default function App() {
           })}
         </nav>
 
-        {/* User Identity Display */}
         <div className={`p-4 m-4 rounded-xl border ${theme.border} ${theme.inputBg} shrink-0`}>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-500">Verified Identity</span>
           </div>
-          <div className={`text-xs font-extrabold ${theme.textStrong} truncate`}>
-            {userProfile?.full_name}
-          </div>
+          <div className={`text-xs font-extrabold ${theme.textStrong} truncate`}>{userProfile?.full_name}</div>
           <div className={`text-[10px] font-bold ${theme.textMuted} truncate mt-0.5`}>
             {userProfile?.sub_role} • {userProfile?.organization === 'PGP Cohort' ? 'Student' : userProfile?.organization}
           </div>
@@ -249,48 +278,50 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Notification Dropdown */}
+            {/* LIVE NOTIFICATION BELL */}
             <div className="relative">
               <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                onClick={handleOpenNotifications}
                 className={`relative p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all`}
               >
                 <Bell className="w-4 h-4" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-extrabold text-white shadow-sm ring-2 ring-[#121212]">
+                    {unreadCount}
+                  </span>
+                )}
               </button>
 
               {notificationsOpen && (
                 <div className={`absolute right-0 mt-2 w-64 sm:w-80 ${theme.surface} border ${theme.border} rounded-2xl shadow-2xl z-50 overflow-hidden`}>
                   <div className={`p-3 border-b ${theme.border} flex justify-between items-center`}>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Cohort Notifications</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Live Cohort Updates</span>
                     <button onClick={() => setNotificationsOpen(false)} className={theme.textMuted}><X className="w-3.5 h-3.5"/></button>
                   </div>
-                  <div className={`divide-y ${theme.border} max-h-64 overflow-y-auto`}>
-                    <div className={`p-3.5 hover:bg-gray-500/5 cursor-pointer transition-colors`}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className={`text-xs font-bold ${theme.textStrong}`}>Council Reply Added</span>
-                        <span className={`text-[10px] ${theme.textMuted}`}>10m ago</span>
-                      </div>
-                      <p className={`text-[11px] ${theme.textMuted}`}>An official response was posted in the forum.</p>
-                    </div>
+                  <div className={`divide-y ${theme.border} max-h-72 overflow-y-auto`}>
+                    {notifications.length === 0 ? (
+                      <div className={`p-6 text-center text-xs font-semibold ${theme.textMuted}`}>No new updates yet.</div>
+                    ) : (
+                      notifications.map((notif) => (
+                        <div key={notif.id} className={`p-3.5 hover:bg-gray-500/5 cursor-pointer transition-colors`}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className={`text-xs font-bold text-emerald-400`}>{notif.title}</span>
+                            <span className={`text-[9px] ${theme.textMuted}`}>{notif.time}</span>
+                          </div>
+                          <p className={`text-[11px] font-medium ${theme.textStrong}`}>{notif.message}</p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Theme Toggle */}
-            <button
-              onClick={() => setIsDark(!isDark)}
-              className={`p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all`}
-            >
+            <button onClick={() => setIsDark(!isDark)} className={`p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all`}>
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className={`p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} text-red-500 hover:bg-red-500/10 transition-all flex items-center gap-1.5 text-xs font-bold`}
-            >
+            <button onClick={handleLogout} className={`p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} text-red-500 hover:bg-red-500/10 transition-all flex items-center gap-1.5 text-xs font-bold`}>
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Sign Out</span>
             </button>
@@ -301,7 +332,6 @@ export default function App() {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 w-full">
           {activeTab === 'overview' && (
             <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in duration-500">
-              {/* Welcome Banner */}
               <div className={`${theme.surface} border ${theme.border} rounded-2xl md:rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-sm`}>
                 <div className="absolute -right-20 -top-20 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="flex items-center gap-2 text-emerald-500 text-[10px] md:text-xs font-extrabold uppercase tracking-widest mb-2 md:mb-3">
@@ -316,7 +346,6 @@ export default function App() {
                 </p>
               </div>
 
-              {/* Live Overview Metric Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 <div onClick={() => setActiveTab('finance')} className={`${theme.surface} border ${theme.border} rounded-2xl p-5 md:p-6 cursor-pointer hover:border-emerald-500/50 transition-all group shadow-sm`}>
                   <div className="flex items-center justify-between mb-4">
