@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Shield, Home, DollarSign, Calendar, MessageSquare, 
-  Sun, Moon, Bell, LogOut, Sparkles, TrendingUp, 
-  Users, ArrowRight, CheckCircle2, Clock, Wallet, Menu, X
+import {
+  Shield, Home, DollarSign, Calendar, MessageSquare,
+  Sun, Moon, Bell, LogOut, Sparkles, TrendingUp,
+  Users, ArrowRight, CheckCircle2, Clock, Wallet, Menu, X, Key
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import AuthScreen from './Components/AuthScreen';
@@ -10,21 +10,18 @@ import FinanceLedger from './Components/FinanceLedger';
 import EventCalendar from './Components/EventCalendar';
 import AnonymousForum from './Components/AnonymousForum';
 import AdminUserManagement from './Components/AdminUserManagement';
-import { Key } from 'lucide-react'; // Add Key to your lucide-react import list
 
 export default function App() {
-  // --- AUTH & USER HIERARCHY STATE ---
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeRole, setActiveRole] = useState('student');
 
-  // --- NAVIGATION & THEME STATE ---
   const [activeTab, setActiveTab] = useState('overview');
   const [isDark, setIsDark] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
-  // --- OVERVIEW LIVE STATS ---
   const [stats, setStats] = useState({
     totalFunds: 0,
     totalSpent: 0,
@@ -36,25 +33,24 @@ export default function App() {
 
   const theme = isDark
     ? {
-        bg: 'bg-[#0a0a0a]',
-        surface: 'bg-[#121212]',
-        border: 'border-[#262626]',
-        textStrong: 'text-white',
-        textMuted: 'text-gray-400',
-        inputBg: 'bg-[#1a1a1a]',
-        hover: 'hover:bg-[#1f1f1f]',
-      }
+      bg: 'bg-[#0a0a0a]',
+      surface: 'bg-[#121212]',
+      border: 'border-[#262626]',
+      textStrong: 'text-white',
+      textMuted: 'text-gray-400',
+      inputBg: 'bg-[#1a1a1a]',
+      hover: 'hover:bg-[#1f1f1f]',
+    }
     : {
-        bg: 'bg-[#f8fafc]',
-        surface: 'bg-white',
-        border: 'border-gray-200',
-        textStrong: 'text-gray-900',
-        textMuted: 'text-gray-500',
-        inputBg: 'bg-gray-50',
-        hover: 'hover:bg-gray-100',
-      };
+      bg: 'bg-[#f8fafc]',
+      surface: 'bg-white',
+      border: 'border-gray-200',
+      textStrong: 'text-gray-900',
+      textMuted: 'text-gray-500',
+      inputBg: 'bg-gray-50',
+      hover: 'hover:bg-gray-100',
+    };
 
-  // --- 1. CHECK AUTH SESSION & FETCH HIERARCHY PROFILE ---
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -90,7 +86,6 @@ export default function App() {
       setUserProfile(data);
       setActiveRole(data.role);
     } else {
-      // Fallback to auth metadata if trigger is still completing
       const meta = user.user_metadata || {};
       const fallbackProfile = {
         full_name: meta.full_name || user.email?.split('@')[0] || 'Cohort Member',
@@ -104,7 +99,6 @@ export default function App() {
     setAuthLoading(false);
   };
 
-  // --- 2. FETCH LIVE OVERVIEW METRICS ---
   useEffect(() => {
     if (!session) return;
     fetchOverviewStats();
@@ -148,7 +142,6 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  // --- GUARD ROUTES ---
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-emerald-500 flex flex-col items-center justify-center gap-3 font-bold text-sm">
@@ -165,20 +158,20 @@ export default function App() {
   }
 
   const navItems = [
-  { id: 'overview', label: 'Hub Overview', icon: Home },
-  { id: 'finance', label: 'Finance Ledger', icon: DollarSign },
-  { id: 'calendar', label: 'Event Calendar', icon: Calendar },
-  { id: 'forum', label: 'Anonymous Forum', icon: MessageSquare },
-  ...(activeRole === 'admin' ? [{ id: 'users', label: 'Access Control', icon: Key }] : []),
-];
+    { id: 'overview', label: 'Hub Overview', icon: Home },
+    { id: 'finance', label: 'Finance Ledger', icon: DollarSign },
+    { id: 'calendar', label: 'Event Calendar', icon: Calendar },
+    { id: 'forum', label: 'Anonymous Forum', icon: MessageSquare },
+    ...(activeRole === 'admin' ? [{ id: 'users', label: 'Access Control', icon: Key }] : []),
+  ];
 
   const availableBalance = stats.totalFunds - stats.totalSpent;
 
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.textStrong} flex flex-col md:flex-row transition-colors duration-300 selection:bg-emerald-500 selection:text-white`}>
-      
+
       {/* SIDEBAR NAVIGATION */}
-      <aside className={`w-full md:w-64 ${theme.surface} border-b md:border-b-0 md:border-r ${theme.border} flex flex-col justify-between shrink-0 z-30`}>
+      <aside className={`w-full md:w-64 ${theme.surface} border-b md:border-b-0 md:border-r ${theme.border} flex flex-col justify-between shrink-0 z-40`}>
         <div>
           {/* Brand Logo */}
           <div className={`h-20 px-6 flex items-center justify-between border-b ${theme.border}`}>
@@ -216,11 +209,10 @@ export default function App() {
                     setActiveTab(item.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
-                    isActive
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${isActive
                       ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 shadow-sm'
                       : `${theme.textMuted} ${theme.hover} hover:${theme.textStrong}`
-                  }`}
+                    }`}
                 >
                   <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-500' : ''}`} />
                   {item.label}
@@ -248,26 +240,55 @@ export default function App() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
+      <div className="flex-1 flex flex-col min-w-0 relative">
+
         {/* TOP HEADER BAR */}
-        <header className={`h-20 px-6 md:px-10 ${theme.surface} border-b ${theme.border} flex items-center justify-between shrink-0`}>
+        <header className={`h-20 px-4 md:px-10 ${theme.surface} border-b ${theme.border} flex items-center justify-between shrink-0 z-30`}>
           <div>
-            <h1 className={`text-lg md:text-xl font-extrabold tracking-tight ${theme.textStrong}`}>
+            <h1 className={`text-lg md:text-xl font-extrabold tracking-tight ${theme.textStrong} hidden sm:block`}>
               Transparency Hub
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3 ml-auto">
             {/* Notification Bell */}
-            <button className={`relative p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all`}>
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className={`relative p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all`}
+              >
+                <Bell className="w-4 h-4" />
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500" />
+              </button>
 
-            {/* Official User Designation Badge */}
-            <div className={`px-3.5 py-1.5 rounded-xl border ${theme.border} ${theme.inputBg} flex items-center gap-2.5`}>
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse hidden sm:block" />
+              {notificationsOpen && (
+                <div className={`absolute right-0 mt-2 w-64 md:w-80 ${theme.surface} border ${theme.border} rounded-2xl shadow-xl z-50 overflow-hidden`}>
+                  <div className="p-3 border-b border-gray-500/10">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-500">Recent Updates</span>
+                  </div>
+                  <div className="divide-y divide-gray-500/10 max-h-64 overflow-y-auto">
+                    <div className="p-3 hover:bg-gray-500/5 cursor-pointer">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`text-xs font-bold ${theme.textStrong}`}>Council Reply</span>
+                        <span className={`text-[10px] ${theme.textMuted}`}>10m ago</span>
+                      </div>
+                      <p className={`text-[11px] ${theme.textMuted}`}>The council replied to a forum post.</p>
+                    </div>
+                    <div className="p-3 hover:bg-gray-500/5 cursor-pointer">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className={`text-xs font-bold ${theme.textStrong}`}>New Event</span>
+                        <span className={`text-[10px] ${theme.textMuted}`}>2h ago</span>
+                      </div>
+                      <p className={`text-[11px] ${theme.textMuted}`}>Product Management Workshop scheduled.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Official User Designation Badge - Hidden on small screens to save space */}
+            <div className={`px-3 py-1.5 rounded-xl border ${theme.border} ${theme.inputBg} hidden lg:flex items-center gap-2.5`}>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <div className="text-left">
                 <div className={`text-xs font-extrabold ${theme.textStrong} leading-tight`}>
                   {userProfile?.full_name || 'Cohort Member'}
@@ -302,12 +323,12 @@ export default function App() {
         </header>
 
         {/* DYNAMIC PAGE CONTENT */}
-        <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+        <main className="flex-1 p-4 md:p-6 lg:p-10 overflow-y-auto w-full">
           {activeTab === 'overview' && (
-            <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              
+            <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
               {/* Welcome Banner */}
-              <div className={`${theme.surface} border ${theme.border} rounded-3xl p-8 relative overflow-hidden shadow-sm`}>
+              <div className={`${theme.surface} border ${theme.border} rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-sm`}>
                 <div className="absolute -right-20 -top-20 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="flex items-center gap-2 text-emerald-500 text-xs font-extrabold uppercase tracking-widest mb-2">
                   <Sparkles className="w-4 h-4" /> Cohort Governance & Operations
@@ -316,18 +337,18 @@ export default function App() {
                   Welcome back, {userProfile?.full_name?.split(' ')[0]}!
                 </h2>
                 <p className={`text-xs md:text-sm ${theme.textMuted} max-w-2xl leading-relaxed`}>
-                  You are logged in as <span className="text-emerald-500 font-bold">{userProfile?.sub_role} ({userProfile?.organization})</span>. 
+                  You are logged in as <span className="text-emerald-500 font-bold">{userProfile?.sub_role} ({userProfile?.organization})</span>.
                   All treasury transactions, event reservations, and townhall discussions are synced in real time across the cohort.
                 </p>
               </div>
 
               {/* Live Overview Metric Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+
                 {/* Finance Snapshot */}
-                <div 
+                <div
                   onClick={() => setActiveTab('finance')}
-                  className={`${theme.surface} border ${theme.border} rounded-2xl p-6 cursor-pointer hover:border-emerald-500/50 transition-all group shadow-sm`}
+                  className={`${theme.surface} border ${theme.border} rounded-2xl p-5 md:p-6 cursor-pointer hover:border-emerald-500/50 transition-all group shadow-sm`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <span className={`text-xs font-bold uppercase tracking-wider ${theme.textMuted}`}>Available Treasury</span>
@@ -335,7 +356,7 @@ export default function App() {
                       <Wallet className="w-5 h-5" />
                     </div>
                   </div>
-                  <div className={`text-3xl font-extrabold ${theme.textStrong} mb-2`}>
+                  <div className={`text-2xl md:text-3xl font-extrabold ${theme.textStrong} mb-2 break-words`}>
                     ₹{availableBalance.toLocaleString('en-IN')}
                   </div>
                   <div className="flex items-center justify-between text-xs pt-3 border-t border-gray-500/10">
@@ -347,9 +368,9 @@ export default function App() {
                 </div>
 
                 {/* Calendar Snapshot */}
-                <div 
+                <div
                   onClick={() => setActiveTab('calendar')}
-                  className={`${theme.surface} border ${theme.border} rounded-2xl p-6 cursor-pointer hover:border-emerald-500/50 transition-all group shadow-sm`}
+                  className={`${theme.surface} border ${theme.border} rounded-2xl p-5 md:p-6 cursor-pointer hover:border-emerald-500/50 transition-all group shadow-sm`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <span className={`text-xs font-bold uppercase tracking-wider ${theme.textMuted}`}>Scheduled Events</span>
@@ -357,11 +378,11 @@ export default function App() {
                       <Calendar className="w-5 h-5" />
                     </div>
                   </div>
-                  <div className={`text-3xl font-extrabold ${theme.textStrong} mb-2`}>
+                  <div className={`text-2xl md:text-3xl font-extrabold ${theme.textStrong} mb-2`}>
                     {stats.upcomingEventsCount}
                   </div>
                   <div className="flex items-center justify-between text-xs pt-3 border-t border-gray-500/10">
-                    <span className={`${theme.textMuted} truncate max-w-[180px]`}>
+                    <span className={`${theme.textMuted} truncate max-w-[120px] md:max-w-[180px]`}>
                       {stats.nextEvent ? `Next: ${stats.nextEvent.name}` : 'No upcoming events'}
                     </span>
                     <span className="text-emerald-500 font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
@@ -371,9 +392,9 @@ export default function App() {
                 </div>
 
                 {/* Forum Snapshot */}
-                <div 
+                <div
                   onClick={() => setActiveTab('forum')}
-                  className={`${theme.surface} border ${theme.border} rounded-2xl p-6 cursor-pointer hover:border-emerald-500/50 transition-all group shadow-sm`}
+                  className={`${theme.surface} border ${theme.border} rounded-2xl p-5 md:p-6 cursor-pointer hover:border-emerald-500/50 transition-all group shadow-sm sm:col-span-2 lg:col-span-1`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <span className={`text-xs font-bold uppercase tracking-wider ${theme.textMuted}`}>Townhall Pulse</span>
@@ -381,7 +402,7 @@ export default function App() {
                       <MessageSquare className="w-5 h-5" />
                     </div>
                   </div>
-                  <div className={`text-3xl font-extrabold ${theme.textStrong} mb-2`}>
+                  <div className={`text-2xl md:text-3xl font-extrabold ${theme.textStrong} mb-2`}>
                     {stats.openIssuesCount} <span className={`text-sm font-semibold ${theme.textMuted}`}>Active</span>
                   </div>
                   <div className="flex items-center justify-between text-xs pt-3 border-t border-gray-500/10">
@@ -403,20 +424,21 @@ export default function App() {
           )}
 
           {activeTab === 'calendar' && (
-            <EventCalendar 
-              theme={theme} 
-              activeRole={activeRole} 
-              userName={userProfile?.full_name} 
-              userProfile={userProfile} 
+            <EventCalendar
+              theme={theme}
+              activeRole={activeRole}
+              userName={userProfile?.full_name}
+              userProfile={userProfile}
             />
           )}
 
-         {activeTab === 'forum' && (
-  <AnonymousForum theme={theme} activeRole={activeRole} userProfile={userProfile} />
-)}
+          {activeTab === 'forum' && (
+            <AnonymousForum theme={theme} activeRole={activeRole} userProfile={userProfile} />
+          )}
+
           {activeTab === 'users' && activeRole === 'admin' && (
-  <AdminUserManagement theme={theme} />
-)}
+            <AdminUserManagement theme={theme} />
+          )}
         </main>
       </div>
     </div>
