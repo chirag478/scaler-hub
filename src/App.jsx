@@ -342,7 +342,7 @@ const addNotification = (title, message) => {
                   <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" /> Cohort Governance Operations
                 </div>
                 <h2 className={`text-xl sm:text-2xl md:text-3xl font-extrabold ${theme.textStrong} mb-1.5 md:mb-2`}>
-                  Welcome back, {userProfile?.full_name?.split(' ')[0]}!
+                  Welcome back, (userProfile?.full_name || 'Member').split(' ')[0]
                 </h2>
                 <p className={`text-[11px] md:text-sm ${theme.textMuted} max-w-2xl leading-relaxed`}>
                   You are logged in securely as <span className="text-emerald-500 font-bold">{userProfile?.sub_role} ({userProfile?.organization === 'PGP Cohort' ? 'Student' : userProfile?.organization})</span>.
