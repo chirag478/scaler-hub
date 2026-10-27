@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Trash2, Users, X, Sparkles, Clock } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Trash2, Users, X, Sparkles, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export default function EventCalendar({ theme, activeRole, userName }) {
@@ -27,11 +27,11 @@ export default function EventCalendar({ theme, activeRole, userName }) {
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Updated Form State for Admin Guidelines
   const [eventDate, setEventDate] = useState('');
-  const [eventTime, setEventTime] = useState('');
   const [eventName, setEventName] = useState('');
-  const [eventDesc, setEventDesc] = useState('');
-  const [eventReason, setEventReason] = useState('');
+  const [eventPurpose, setEventPurpose] = useState('');
+  const [estimatedBudget, setEstimatedBudget] = useState('');
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -82,10 +82,11 @@ export default function EventCalendar({ theme, activeRole, userName }) {
 
     const newEvent = {
       date: eventDate,
-      time: eventTime || 'All Day',
+      time: 'All Day',
       name: eventName,
-      desc: eventDesc,
-      reason: eventReason,
+      desc: eventPurpose,
+      purpose: eventPurpose,
+      estimated_budget: Number(estimatedBudget || 0),
       attendees: []
     };
 
@@ -100,20 +101,14 @@ export default function EventCalendar({ theme, activeRole, userName }) {
     }
 
     if (data) {
-      setEventDate(''); setEventTime(''); setEventName(''); setEventDesc(''); setEventReason('');
+      setEventDate(''); setEventName(''); setEventPurpose(''); setEstimatedBudget('');
       setCurrentDate(new Date(new Date(eventDate).getFullYear(), new Date(eventDate).getMonth(), 1));
     }
   };
 
   const handleUnblockDate = async (id) => {
-    const { error } = await supabase
-      .from('calendar_events')
-      .delete()
-      .eq('id', id);
-
-    if (!error) {
-      setSelectedEventId(null);
-    }
+    const { error } = await supabase.from('calendar_events').delete().eq('id', id);
+    if (!error) setSelectedEventId(null);
   };
 
   const handleRSVP = async (id) => {
@@ -128,10 +123,7 @@ export default function EventCalendar({ theme, activeRole, userName }) {
       ? currentAttendees.filter(name => name !== currentUserName)
       : [...currentAttendees, currentUserName];
 
-    await supabase
-      .from('calendar_events')
-      .update({ attendees: updatedAttendees })
-      .eq('id', id);
+    await supabase.from('calendar_events').update({ attendees: updatedAttendees }).eq('id', id);
   };
 
   const handleEventClick = (id) => setSelectedEventId(selectedEventId === id ? null : id);
@@ -144,27 +136,31 @@ export default function EventCalendar({ theme, activeRole, userName }) {
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Sparkles className="w-5 h-5 text-emerald-500" />
-          <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">Event Schedule</span>
+          <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">Master Calendar & Planning</span>
         </div>
         {loading && <span className={`text-xs font-semibold animate-pulse ${safeTheme.textMuted}`}>Syncing...</span>}
       </div>
 
       <div className={`grid grid-cols-1 ${canBlockDate ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-5 md:gap-6 items-start`}>
+        
+        {/* EVENT PLANNING FORM (COUNCIL/CLUBS ONLY) */}
         {canBlockDate && (
           <div className={`lg:col-span-1 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-4 md:p-6 shadow-sm`}>
-            <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                 <Calendar className="w-5 h-5 text-emerald-500" />
               </div>
-              <h3 className={`text-base font-extrabold ${safeTheme.textStrong}`}>Block a Date</h3>
+              <h3 className={`text-base font-extrabold ${safeTheme.textStrong}`}>Schedule Event</h3>
             </div>
 
             <form onSubmit={handleAddCalendarEvent} className="space-y-4">
-              <div className="p-3 bg-gray-500/5 border border-gray-500/20 rounded-xl space-y-2 mb-2">
-                <div className="text-[10px] font-extrabold uppercase text-amber-500 tracking-wider flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" /> Event Planning Checklist
+              
+              {/* ADMIN COMPLIANCE CHECKLIST */}
+              <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2 mb-2">
+                <div className="text-[10px] md:text-[11px] font-extrabold uppercase text-amber-500 tracking-wider flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5" /> Event Planning Guidelines
                 </div>
-                <ul className={`text-[10px] ${safeTheme.textMuted} space-y-1 list-disc pl-4`}>
+                <ul className={`text-[10px] md:text-[11px] ${safeTheme.textStrong} space-y-1 list-disc pl-4 font-medium`}>
                   <li>Submit plan & budget at least <strong>15 days</strong> before event.</li>
                   <li>Guest/speaker details must be confirmed.</li>
                   <li>No bookings without Admin approval (Ashil/Madhur/Spandan).</li>
@@ -173,32 +169,33 @@ export default function EventCalendar({ theme, activeRole, userName }) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Proposed Date</label>
+                  <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Proposed Date</label>
                   <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
                 </div>
                 <div>
-                  <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Estimated Budget (₹)</label>
-                  <input type="number" value={eventReason} onChange={(e) => setEventReason(e.target.value)} placeholder="e.g. 5000" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
+                  <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Est. Budget (₹)</label>
+                  <input type="number" min="0" value={estimatedBudget} onChange={(e) => setEstimatedBudget(e.target.value)} placeholder="e.g. 5000" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
                 </div>
               </div>
               
               <div>
-                <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Event Title & Format</label>
+                <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Event Title & Format</label>
                 <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g. Guest Speaker Series" required className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
               </div>
               
               <div>
-                <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Purpose & Expected Outcome</label>
-                <textarea value={eventDesc} onChange={(e) => setEventDesc(e.target.value)} placeholder="Why are we doing this?" rows="2" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none resize-none focus:border-emerald-500`} />
+                <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Purpose & Expected Outcome</label>
+                <textarea value={eventPurpose} onChange={(e) => setEventPurpose(e.target.value)} placeholder="Why are we doing this?" rows="2" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none resize-none focus:border-emerald-500`} />
               </div>
               
-              <button type="submit" className="w-full bg-[#0A8647] hover:bg-[#0c9d54] text-white text-xs font-bold py-3 rounded-xl transition-all shadow-sm">
+              <button type="submit" className="w-full bg-[#0A8647] hover:bg-[#0c9d54] text-white text-xs font-extrabold py-3 rounded-xl transition-all shadow-sm">
                 Submit Plan for Approval
               </button>
             </form>
           </div>
         )}
 
+        {/* CALENDAR GRID */}
         <div className={`${canBlockDate ? 'lg:col-span-2' : 'lg:col-span-1'} ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-3 sm:p-4 md:p-6 shadow-sm overflow-x-auto`}>
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 md:mb-6 pb-4 border-b border-gray-500/10 min-w-[300px]">
             <div className="flex items-center gap-4">
@@ -207,10 +204,6 @@ export default function EventCalendar({ theme, activeRole, userName }) {
                 <button onClick={handlePrevMonth} className={`p-2 rounded-lg border ${safeTheme.border} ${safeTheme.hover} transition-all`}><ChevronLeft className={`w-4 h-4 ${safeTheme.textMuted}`} /></button>
                 <button onClick={handleNextMonth} className={`p-2 rounded-lg border ${safeTheme.border} ${safeTheme.hover} transition-all`}><ChevronRight className={`w-4 h-4 ${safeTheme.textMuted}`} /></button>
               </div>
-            </div>
-            <div className="flex gap-2 items-center bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/20 w-fit">
-              <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className={`text-[10px] sm:text-xs font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'} uppercase tracking-wider`}>Scheduled Event</span>
             </div>
           </div>
 
@@ -241,7 +234,7 @@ export default function EventCalendar({ theme, activeRole, userName }) {
                       key={day}
                       onClick={() => blockedEvent && handleEventClick(blockedEvent.id)}
                       className={`relative h-16 sm:h-20 md:h-24 border rounded-lg md:rounded-xl p-1 md:p-2.5 transition-all duration-300 flex flex-col justify-between overflow-visible 
-                        ${blockedEvent ? 'bg-emerald-500/10 border-emerald-500/50 cursor-pointer hover:bg-emerald-500/20 hover:-translate-y-0.5' : `${safeTheme.bg}${safeTheme.border}`}`}
+                        ${blockedEvent ? 'bg-emerald-500/10 border-emerald-500/50 cursor-pointer hover:bg-emerald-500/20 hover:-translate-y-0.5' : `${safeTheme.bg} ${safeTheme.border}`}`}
                     >
                       <span className={`text-[10px] md:text-xs font-extrabold ${blockedEvent ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : safeTheme.textMuted}`}>{day}</span>
                       {blockedEvent && (
@@ -253,23 +246,28 @@ export default function EventCalendar({ theme, activeRole, userName }) {
                         </div>
                       )}
 
+                      {/* RSVP MODAL */}
                       {isSelected && (
                         <div onClick={(e) => e.stopPropagation()} className={`fixed sm:absolute z-50 inset-x-4 bottom-20 sm:inset-auto sm:bottom-[110%] sm:left-1/2 sm:-translate-x-1/2 w-auto sm:w-72 p-4 md:p-5 rounded-2xl shadow-2xl border ${isDark ? 'bg-[#1a1a1a]/95 border-[#333]' : 'bg-white/95 border-gray-200'} backdrop-blur-xl cursor-default`}>
                           <button onClick={() => setSelectedEventId(null)} className={`absolute top-3 right-3 ${safeTheme.textMuted} hover:text-red-500 bg-gray-500/10 rounded-full p-1`}><X className="w-3.5 h-3.5" /></button>
 
                           <div className="flex flex-wrap items-center gap-2 mb-2 pr-6">
                             <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[9px] md:text-[10px] font-bold uppercase">{blockedEvent.date}</span>
-                            <span className="px-2 py-0.5 bg-gray-500/10 text-gray-400 rounded text-[9px] md:text-[10px] font-bold uppercase flex items-center gap-1">
-                              <Clock className="w-2.5 h-2.5 md:w-3 md:h-3" /> {blockedEvent.time || 'All Day'}
-                            </span>
                           </div>
 
                           <h4 className={`font-extrabold text-sm md:text-base mb-1.5 pr-4 ${safeTheme.textStrong}`}>{blockedEvent.name}</h4>
-                          <p className={`text-[11px] md:text-xs mb-3 ${safeTheme.textMuted}`}>{blockedEvent.desc || 'No description provided.'}</p>
-
-                          <div className="p-2 md:p-2.5 rounded-lg bg-gray-500/5 border border-gray-500/10 mb-3">
-                            <div className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-gray-400 mb-0.5">Reason</div>
-                            <p className={`text-[11px] md:text-xs font-medium ${safeTheme.textStrong} italic`}>{blockedEvent.reason || 'None provided.'}</p>
+                          
+                          <div className="p-2.5 rounded-lg bg-gray-500/5 border border-gray-500/10 mb-3 space-y-1.5 mt-2">
+                            <div>
+                              <div className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-emerald-500">Purpose</div>
+                              <p className={`text-[11px] md:text-xs font-medium ${safeTheme.textStrong}`}>{blockedEvent.purpose || blockedEvent.desc || 'None provided.'}</p>
+                            </div>
+                            {blockedEvent.estimated_budget > 0 && (
+                              <div className="pt-1.5 border-t border-gray-500/10">
+                                <div className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-amber-500">Estimated Cost</div>
+                                <p className={`text-[11px] md:text-xs font-extrabold ${safeTheme.textStrong}`}>₹{Number(blockedEvent.estimated_budget).toLocaleString()}</p>
+                              </div>
+                            )}
                           </div>
 
                           <div className="pt-3 border-t border-gray-500/10 space-y-2">
