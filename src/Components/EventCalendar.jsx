@@ -1,314 +1,154 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Trash2, Users, X, Sparkles, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { Calendar, CheckCircle, Clock, AlertCircle, ShieldAlert } from 'lucide-react';
 
-export default function EventCalendar({ theme, activeRole, userName }) {
+export default function EventCalendar({ theme, activeRole }) {
+  // 1. HARD LOCKOUT FOR STUDENTS
+  if (activeRole === 'student' || !activeRole) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <ShieldAlert className="w-16 h-16 text-red-500/50 mb-4" />
+        <h2 className="text-xl font-bold text-white mb-2">Access Restricted</h2>
+        <p className="text-gray-400 text-sm">The Event Planner is restricted to Club Leads and Student Council.</p>
+      </div>
+    );
+  }
+
   const safeTheme = theme || {
-    bg: 'bg-[#0a0a0a]',
-    surface: 'bg-[#121212]',
-    border: 'border-[#262626]',
-    textStrong: 'text-white',
-    textMuted: 'text-gray-400',
-    inputBg: 'bg-[#1a1a1a]',
-    hover: 'hover:bg-[#1f1f1f]',
+    bg: 'bg-[#0a0a0a]', surface: 'bg-[#121212]', border: 'border-[#262626]',
+    textStrong: 'text-white', textMuted: 'text-gray-400', inputBg: 'bg-[#1a1a1a]'
   };
 
-  const isAdmin = activeRole === 'admin';
-  const isCouncil = activeRole === 'council';
+  const isPresident = activeRole === 'president';
+  const isVP = activeRole === 'vp';
+  const isTreasurer = activeRole === 'treasurer';
   const isClubLead = activeRole === 'club_lead';
-  const isStudent = activeRole === 'student';
+  
+  const canApprove = isPresident || isVP || isTreasurer;
 
-  const canBlockDate = isAdmin || isCouncil || isClubLead;
-  const canUnblockDate = isAdmin || isCouncil;
-  const canViewRSVPs = isAdmin || isCouncil || isClubLead;
-
-  const isDark = safeTheme.bg.includes('0a0a0a');
-
-  const [calendarEvents, setCalendarEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Updated Form State for Admin Guidelines
+  const [events, setEvents] = useState([]);
   const [eventDate, setEventDate] = useState('');
   const [eventName, setEventName] = useState('');
   const [eventPurpose, setEventPurpose] = useState('');
-  const [estimatedBudget, setEstimatedBudget] = useState('');
-
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedEventId, setSelectedEventId] = useState(null);
-
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   useEffect(() => {
     fetchEvents();
-
-    const subscription = supabase
-      .channel('public:calendar_events')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setCalendarEvents((prev) => [...prev, payload.new]);
-        } else if (payload.eventType === 'DELETE') {
-          setCalendarEvents((prev) => prev.filter((event) => event.id !== payload.old.id));
-        } else if (payload.eventType === 'UPDATE') {
-          setCalendarEvents((prev) => prev.map((event) => event.id === payload.new.id ? payload.new : event));
-        }
-      })
+    const sub = supabase.channel('public:calendar_events')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_events' }, fetchEvents)
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    return () => supabase.removeChannel(sub);
   }, []);
 
   const fetchEvents = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .order('created_at', { ascending: true });
-
-    if (!error && data) {
-      setCalendarEvents(data);
-    }
-    setLoading(false);
+    const { data } = await supabase.from('calendar_events').select('*').order('date', { ascending: true });
+    if (data) setEvents(data);
   };
 
-  const handleAddCalendarEvent = async (e) => {
+  const handleSubmitEvent = async (e) => {
     e.preventDefault();
-    if (!eventDate || !eventName) return;
-
     const newEvent = {
-      date: eventDate,
-      time: 'All Day',
-      name: eventName,
-      desc: eventPurpose,
-      purpose: eventPurpose,
-      estimated_budget: Number(estimatedBudget || 0),
-      attendees: []
+      date: eventDate, name: eventName, purpose: eventPurpose,
+      status: 'pending', pres_approved: false, vp_approved: false, treas_approved: false
     };
-
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .insert([newEvent])
-      .select();
-
-    if (error) {
-      alert("Error adding event: " + error.message);
-      return;
-    }
-
-    if (data) {
-      setEventDate(''); setEventName(''); setEventPurpose(''); setEstimatedBudget('');
-      setCurrentDate(new Date(new Date(eventDate).getFullYear(), new Date(eventDate).getMonth(), 1));
-    }
+    await supabase.from('calendar_events').insert([newEvent]);
+    setEventDate(''); setEventName(''); setEventPurpose('');
   };
 
-  const handleUnblockDate = async (id) => {
-    const { error } = await supabase.from('calendar_events').delete().eq('id', id);
-    if (!error) setSelectedEventId(null);
+  const handleSignApproval = async (event, roleType) => {
+    let updates = {};
+    if (roleType === 'president') updates.pres_approved = true;
+    if (roleType === 'vp') updates.vp_approved = true;
+    if (roleType === 'treasurer') updates.treas_approved = true;
+
+    // Check if this signature completes the 3-key requirement
+    const isNowApproved = 
+      (roleType === 'president' || event.pres_approved) &&
+      (roleType === 'vp' || event.vp_approved) &&
+      (roleType === 'treasurer' || event.treas_approved);
+      
+    if (isNowApproved) updates.status = 'approved';
+
+    await supabase.from('calendar_events').update(updates).eq('id', event.id);
   };
 
-  const handleRSVP = async (id) => {
-    const targetEvent = calendarEvents.find(e => e.id === id);
-    if (!targetEvent) return;
-
-    const currentUserName = userName || "Cohort Member";
-    const currentAttendees = targetEvent.attendees || [];
-    const hasRSVPd = currentAttendees.includes(currentUserName);
-
-    const updatedAttendees = hasRSVPd
-      ? currentAttendees.filter(name => name !== currentUserName)
-      : [...currentAttendees, currentUserName];
-
-    await supabase.from('calendar_events').update({ attendees: updatedAttendees }).eq('id', id);
-  };
-
-  const handleEventClick = (id) => setSelectedEventId(selectedEventId === id ? null : id);
-  const handlePrevMonth = () => { setCurrentDate(new Date(currentYear, currentMonth - 1, 1)); setSelectedEventId(null); };
-  const handleNextMonth = () => { setCurrentDate(new Date(currentYear, currentMonth + 1, 1)); setSelectedEventId(null); };
+  const pendingEvents = events.filter(e => e.status === 'pending');
+  const approvedEvents = events.filter(e => e.status === 'approved');
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full overflow-x-hidden">
-
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-emerald-500" />
-          <span className="text-sm font-bold text-emerald-500 tracking-wider uppercase">Master Calendar & Planning</span>
+    <div className="max-w-6xl mx-auto space-y-8 w-full animate-in fade-in">
+      
+      {/* 3-KEY PENDING APPROVAL QUEUE */}
+      {pendingEvents.length > 0 && (
+        <div className={`${safeTheme.surface} border border-amber-500/30 rounded-2xl p-6 shadow-sm`}>
+          <h3 className="text-sm font-extrabold text-amber-500 mb-4 flex items-center gap-2 uppercase tracking-wider">
+            <AlertCircle className="w-4 h-4" /> Needs 3-Key Approval
+          </h3>
+          <div className="space-y-3">
+            {pendingEvents.map(ev => (
+              <div key={ev.id} className="p-4 bg-[#1a1a1a] rounded-xl border border-[#262626] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs font-bold text-amber-500 mb-1">{ev.date}</div>
+                  <div className="text-sm font-extrabold text-white">{ev.name}</div>
+                  <div className="text-xs text-gray-400 mt-1">{ev.purpose}</div>
+                </div>
+                
+                {/* Signature Status Indicators & Buttons */}
+                <div className="flex gap-2">
+                  <ApprovalKey label="President" isSigned={ev.pres_approved} canSign={isPresident} onSign={() => handleSignApproval(ev, 'president')} />
+                  <ApprovalKey label="VP" isSigned={ev.vp_approved} canSign={isVP} onSign={() => handleSignApproval(ev, 'vp')} />
+                  <ApprovalKey label="Treasurer" isSigned={ev.treas_approved} canSign={isTreasurer} onSign={() => handleSignApproval(ev, 'treasurer')} />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        {loading && <span className={`text-xs font-semibold animate-pulse ${safeTheme.textMuted}`}>Syncing...</span>}
-      </div>
+      )}
 
-      <div className={`grid grid-cols-1 ${canBlockDate ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-5 md:gap-6 items-start`}>
-        
-        {/* EVENT PLANNING FORM (COUNCIL/CLUBS ONLY) */}
-        {canBlockDate && (
-          <div className={`lg:col-span-1 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-4 md:p-6 shadow-sm`}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                <Calendar className="w-5 h-5 text-emerald-500" />
-              </div>
-              <h3 className={`text-base font-extrabold ${safeTheme.textStrong}`}>Schedule Event</h3>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* SUBMIT NEW EVENT FORM */}
+        <div className={`lg:col-span-1 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6`}>
+          <h3 className="text-sm font-extrabold text-white mb-4">Propose Event</h3>
+          <form onSubmit={handleSubmitEvent} className="space-y-4">
+            <input type="date" required value={eventDate} onChange={(e)=>setEventDate(e.target.value)} className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-3 text-xs text-white outline-none`} />
+            <input type="text" required placeholder="Event Name" value={eventName} onChange={(e)=>setEventName(e.target.value)} className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-3 text-xs text-white outline-none`} />
+            <textarea required placeholder="Purpose / Requirements" value={eventPurpose} onChange={(e)=>setEventPurpose(e.target.value)} rows="3" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-3 text-xs text-white outline-none`} />
+            <button type="submit" className="w-full bg-[#0A8647] hover:bg-[#0c9d54] text-white text-xs font-extrabold py-3 rounded-xl transition-all">Submit for 3-Key Approval</button>
+          </form>
+        </div>
 
-            <form onSubmit={handleAddCalendarEvent} className="space-y-4">
-              
-              {/* ADMIN COMPLIANCE CHECKLIST */}
-              <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2 mb-2">
-                <div className="text-[10px] md:text-[11px] font-extrabold uppercase text-amber-500 tracking-wider flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" /> Event Planning Guidelines
-                </div>
-                <ul className={`text-[10px] md:text-[11px] ${safeTheme.textStrong} space-y-1 list-disc pl-4 font-medium`}>
-                  <li>Submit plan & budget at least <strong>15 days</strong> before event.</li>
-                  <li>Guest/speaker details must be confirmed.</li>
-                  <li>No bookings without Admin approval (Ashil/Madhur/Spandan).</li>
-                </ul>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Proposed Date</label>
-                  <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
+        {/* OFFICIAL CALENDAR LIST */}
+        <div className={`lg:col-span-2 ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-6`}>
+          <h3 className="text-sm font-extrabold text-emerald-500 mb-4 flex items-center gap-2 uppercase tracking-wider">
+            <Calendar className="w-4 h-4" /> Official Approved Calendar
+          </h3>
+          <div className="space-y-3">
+            {approvedEvents.length === 0 ? <p className="text-xs text-gray-500 italic">No approved events yet.</p> : 
+             approvedEvents.map(ev => (
+              <div key={ev.id} className="p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-xl flex items-center gap-4">
+                <div className="px-3 py-2 bg-emerald-500/10 rounded-lg text-center min-w-[70px]">
+                  <div className="text-lg font-extrabold text-emerald-500">{new Date(ev.date).getDate()}</div>
+                  <div className="text-[10px] uppercase font-bold text-emerald-600">{new Date(ev.date).toLocaleString('default', { month: 'short' })}</div>
                 </div>
                 <div>
-                  <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Est. Budget (₹)</label>
-                  <input type="number" min="0" value={estimatedBudget} onChange={(e) => setEstimatedBudget(e.target.value)} placeholder="e.g. 5000" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
+                  <h4 className="text-sm font-extrabold text-white">{ev.name}</h4>
+                  <p className="text-xs text-gray-400 mt-1">{ev.purpose}</p>
                 </div>
               </div>
-              
-              <div>
-                <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Event Title & Format</label>
-                <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g. Guest Speaker Series" required className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
-              </div>
-              
-              <div>
-                <label className={`block text-[10px] md:text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Purpose & Expected Outcome</label>
-                <textarea value={eventPurpose} onChange={(e) => setEventPurpose(e.target.value)} placeholder="Why are we doing this?" rows="2" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none resize-none focus:border-emerald-500`} />
-              </div>
-              
-              <button type="submit" className="w-full bg-[#0A8647] hover:bg-[#0c9d54] text-white text-xs font-extrabold py-3 rounded-xl transition-all shadow-sm">
-                Submit Plan for Approval
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* CALENDAR GRID */}
-        <div className={`${canBlockDate ? 'lg:col-span-2' : 'lg:col-span-1'} ${safeTheme.surface} border ${safeTheme.border} rounded-2xl p-3 sm:p-4 md:p-6 shadow-sm overflow-x-auto`}>
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-4 md:mb-6 pb-4 border-b border-gray-500/10 min-w-[300px]">
-            <div className="flex items-center gap-4">
-              <h3 className={`text-xl md:text-2xl font-extrabold ${safeTheme.textStrong} tracking-tight`}>{monthNames[currentMonth]} {currentYear}</h3>
-              <div className="flex gap-2">
-                <button onClick={handlePrevMonth} className={`p-2 rounded-lg border ${safeTheme.border} ${safeTheme.hover} transition-all`}><ChevronLeft className={`w-4 h-4 ${safeTheme.textMuted}`} /></button>
-                <button onClick={handleNextMonth} className={`p-2 rounded-lg border ${safeTheme.border} ${safeTheme.hover} transition-all`}><ChevronRight className={`w-4 h-4 ${safeTheme.textMuted}`} /></button>
-              </div>
-            </div>
-          </div>
-
-          <div className="min-w-[300px] overflow-x-auto pb-4 sm:pb-0">
-             <div className="grid grid-cols-7 gap-1 md:gap-2 text-center mb-2 md:mb-3 min-w-[280px]">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className={`text-[9px] md:text-[11px] font-extrabold ${safeTheme.textMuted} uppercase tracking-widest`}>{day}</div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-7 gap-1 md:gap-2 min-w-[280px]">
-                {Array.from({ length: firstDayOfMonth }).map((_, index) => (
-                  <div key={`empty-${index}`} className="h-16 md:h-24 bg-transparent" />
-                ))}
-
-                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                  const monthStr = String(currentMonth + 1).padStart(2, '0');
-                  const dayStr = String(day).padStart(2, '0');
-                  const exactDateStr = `${currentYear}-${monthStr}-${dayStr}`;
-                  const blockedEvent = calendarEvents.find(e => e.date === exactDateStr);
-                  const attendeesList = blockedEvent?.attendees || [];
-                  const currentUserName = userName || "Cohort Member";
-                  const hasRSVPd = attendeesList.includes(currentUserName);
-                  const isSelected = blockedEvent && selectedEventId === blockedEvent.id;
-
-                  return (
-                    <div
-                      key={day}
-                      onClick={() => blockedEvent && handleEventClick(blockedEvent.id)}
-                      className={`relative h-16 sm:h-20 md:h-24 border rounded-lg md:rounded-xl p-1 md:p-2.5 transition-all duration-300 flex flex-col justify-between overflow-visible 
-                        ${blockedEvent ? 'bg-emerald-500/10 border-emerald-500/50 cursor-pointer hover:bg-emerald-500/20 hover:-translate-y-0.5' : `${safeTheme.bg} ${safeTheme.border}`}`}
-                    >
-                      <span className={`text-[10px] md:text-xs font-extrabold ${blockedEvent ? (isDark ? 'text-emerald-400' : 'text-emerald-600') : safeTheme.textMuted}`}>{day}</span>
-                      {blockedEvent && (
-                        <div className="mt-auto overflow-hidden">
-                          <span className={`text-[8px] md:text-[10px] font-bold ${isDark ? 'text-emerald-400' : 'text-emerald-600'} truncate w-full text-left block leading-tight mb-0.5 md:mb-1`}>{blockedEvent.name}</span>
-                          <span className="flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] font-bold text-white bg-emerald-500 px-1 py-0.5 rounded w-fit">
-                            <Users className="w-2 h-2 md:w-2.5 md:h-2.5" /> {attendeesList.length}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* RSVP MODAL */}
-                      {isSelected && (
-                        <div onClick={(e) => e.stopPropagation()} className={`fixed sm:absolute z-50 inset-x-4 bottom-20 sm:inset-auto sm:bottom-[110%] sm:left-1/2 sm:-translate-x-1/2 w-auto sm:w-72 p-4 md:p-5 rounded-2xl shadow-2xl border ${isDark ? 'bg-[#1a1a1a]/95 border-[#333]' : 'bg-white/95 border-gray-200'} backdrop-blur-xl cursor-default`}>
-                          <button onClick={() => setSelectedEventId(null)} className={`absolute top-3 right-3 ${safeTheme.textMuted} hover:text-red-500 bg-gray-500/10 rounded-full p-1`}><X className="w-3.5 h-3.5" /></button>
-
-                          <div className="flex flex-wrap items-center gap-2 mb-2 pr-6">
-                            <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[9px] md:text-[10px] font-bold uppercase">{blockedEvent.date}</span>
-                          </div>
-
-                          <h4 className={`font-extrabold text-sm md:text-base mb-1.5 pr-4 ${safeTheme.textStrong}`}>{blockedEvent.name}</h4>
-                          
-                          <div className="p-2.5 rounded-lg bg-gray-500/5 border border-gray-500/10 mb-3 space-y-1.5 mt-2">
-                            <div>
-                              <div className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-emerald-500">Purpose</div>
-                              <p className={`text-[11px] md:text-xs font-medium ${safeTheme.textStrong}`}>{blockedEvent.purpose || blockedEvent.desc || 'None provided.'}</p>
-                            </div>
-                            {blockedEvent.estimated_budget > 0 && (
-                              <div className="pt-1.5 border-t border-gray-500/10">
-                                <div className="text-[9px] md:text-[10px] uppercase tracking-wider font-bold text-amber-500">Estimated Cost</div>
-                                <p className={`text-[11px] md:text-xs font-extrabold ${safeTheme.textStrong}`}>₹{Number(blockedEvent.estimated_budget).toLocaleString()}</p>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="pt-3 border-t border-gray-500/10 space-y-2">
-                            {isStudent && (
-                              <button onClick={() => handleRSVP(blockedEvent.id)} className={`w-full py-2 rounded-xl text-xs font-extrabold transition-all 
-                                ${hasRSVPd ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}>
-                                {hasRSVPd ? 'Cancel RSVP' : 'Count Me In!'}
-                              </button>
-                            )}
-
-                            {canViewRSVPs && (
-                              <div>
-                                <div className="flex items-center justify-between text-[10px] md:text-[11px] font-extrabold text-emerald-400 mb-1.5">
-                                  <span>Guest List</span>
-                                  <span>{attendeesList.length} RSVPs</span>
-                                </div>
-                                {attendeesList.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
-                                    {attendeesList.map(a => <span key={a} className="text-[9px] md:text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-500/10 text-white">{a}</span>)}
-                                  </div>
-                                ) : (
-                                  <p className="text-[9px] md:text-[10px] text-gray-500 italic">No RSVPs yet.</p>
-                                )}
-                              </div>
-                            )}
-
-                            {canUnblockDate && (
-                              <button onClick={() => handleUnblockDate(blockedEvent.id)} className="w-full bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 border border-red-500/20 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 mt-2">
-                                <Trash2 className="w-3.5 h-3.5" /> Remove Event
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+            ))}
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+// Helper Component for the 3 Signatures
+function ApprovalKey({ label, isSigned, canSign, onSign }) {
+  if (isSigned) {
+    return <div className="flex flex-col items-center justify-center w-20 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500"><CheckCircle className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">{label}</span></div>;
+  }
+  if (canSign) {
+    return <button onClick={onSign} className="flex flex-col items-center justify-center w-20 py-2 bg-amber-500/10 hover:bg-emerald-500 hover:text-white border border-amber-500/30 rounded-lg text-amber-500 transition-colors"><Clock className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">Sign</span></button>;
+  }
+  return <div className="flex flex-col items-center justify-center w-20 py-2 bg-gray-500/10 border border-gray-500/20 rounded-lg text-gray-500"><Clock className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">Pending</span></div>;
 }
