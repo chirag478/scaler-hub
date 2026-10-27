@@ -160,30 +160,40 @@ export default function EventCalendar({ theme, activeRole, userName }) {
             </div>
 
             <form onSubmit={handleAddCalendarEvent} className="space-y-4">
+              <div className="p-3 bg-gray-500/5 border border-gray-500/20 rounded-xl space-y-2 mb-2">
+                <div className="text-[10px] font-extrabold uppercase text-amber-500 tracking-wider flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5" /> Event Planning Checklist
+                </div>
+                <ul className={`text-[10px] ${safeTheme.textMuted} space-y-1 list-disc pl-4`}>
+                  <li>Submit plan & budget at least <strong>15 days</strong> before event.</li>
+                  <li>Guest/speaker details must be confirmed.</li>
+                  <li>No bookings without Admin approval (Ashil/Madhur/Spandan).</li>
+                </ul>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Date</label>
+                  <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Proposed Date</label>
                   <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} required className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
                 </div>
                 <div>
-                  <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Time</label>
-                  <input type="text" value={eventTime} onChange={(e) => setEventTime(e.target.value)} placeholder="e.g. 2:00 PM" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
+                  <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Estimated Budget (₹)</label>
+                  <input type="number" value={eventReason} onChange={(e) => setEventReason(e.target.value)} placeholder="e.g. 5000" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
                 </div>
               </div>
+              
               <div>
-                <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Event Name</label>
-                <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g. AI Workshop" required className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
+                <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Event Title & Format</label>
+                <input type="text" value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="e.g. Guest Speaker Series" required className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
               </div>
+              
               <div>
-                <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Description</label>
-                <textarea value={eventDesc} onChange={(e) => setEventDesc(e.target.value)} placeholder="What is happening?" rows="2" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none resize-none focus:border-emerald-500`} />
+                <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Purpose & Expected Outcome</label>
+                <textarea value={eventDesc} onChange={(e) => setEventDesc(e.target.value)} placeholder="Why are we doing this?" rows="2" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none resize-none focus:border-emerald-500`} />
               </div>
-              <div>
-                <label className={`block text-[11px] font-bold ${safeTheme.textMuted} mb-1 uppercase tracking-wider`}>Reason</label>
-                <input type="text" value={eventReason} onChange={(e) => setEventReason(e.target.value)} placeholder="Why restrict this date?" className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2.5 text-xs ${safeTheme.textStrong} outline-none focus:border-emerald-500`} />
-              </div>
+              
               <button type="submit" className="w-full bg-[#0A8647] hover:bg-[#0c9d54] text-white text-xs font-bold py-3 rounded-xl transition-all shadow-sm">
-                Reserve Date
+                Submit Plan for Approval
               </button>
             </form>
           </div>
