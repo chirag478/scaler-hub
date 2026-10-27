@@ -3,8 +3,11 @@ import { supabase } from '../supabaseClient';
 import { Calendar, CheckCircle, Clock, AlertCircle, ShieldAlert, Trash2 } from 'lucide-react';
 
 export default function EventCalendar({ theme, activeRole }) {
+  // Normalize the role to lowercase to prevent capitalization bugs
+  const normalizedRole = String(activeRole || '').toLowerCase();
+
   // 1. HARD LOCKOUT FOR STUDENTS
-  if (activeRole === 'student' || !activeRole) {
+  if (normalizedRole === 'student' || !normalizedRole) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in">
         <ShieldAlert className="w-16 h-16 text-red-500/50 mb-4" />
@@ -19,12 +22,13 @@ export default function EventCalendar({ theme, activeRole }) {
     textStrong: 'text-white', textMuted: 'text-gray-400', inputBg: 'bg-[#1a1a1a]'
   };
 
-  const isPresident = activeRole === 'president';
-  const isVP = activeRole === 'vp';
-  const isTreasurer = activeRole === 'treasurer';
+  // Assign specific signature rights
+  const isPresident = normalizedRole === 'president';
+  const isVP = normalizedRole === 'vp';
+  const isTreasurer = normalizedRole === 'treasurer';
   
-  // Council and Admins get delete privileges
-  const isCouncil = activeRole === 'council' || activeRole === 'admin';
+  // Council and Admins (including President, VP, Treasurer) get delete privileges
+  const isCouncil = ['council', 'admin', 'president', 'vp', 'treasurer'].includes(normalizedRole);
 
   const [events, setEvents] = useState([]);
   const [eventDate, setEventDate] = useState('');
@@ -68,7 +72,7 @@ export default function EventCalendar({ theme, activeRole }) {
     if (isNowApproved) updates.status = 'approved';
 
     const { error } = await supabase.from('calendar_events').update(updates).eq('id', event.id);
-    if (error) alert("Approval failed. Check database role permissions.");
+    if (error) alert("Approval failed: " + error.message);
   };
 
   const handleDeleteEvent = async (id) => {
@@ -83,7 +87,7 @@ export default function EventCalendar({ theme, activeRole }) {
   return (
     <div className="max-w-6xl mx-auto space-y-8 w-full animate-in fade-in">
       
-      {/* 3-KEY PENDING APPROVAL QUEUE (Visible to all authorized non-students) */}
+      {/* 3-KEY PENDING APPROVAL QUEUE */}
       {pendingEvents.length > 0 && (
         <div className={`${safeTheme.surface} border border-amber-500/30 rounded-2xl p-6 shadow-sm`}>
           <h3 className="text-sm font-extrabold text-amber-500 mb-4 flex items-center gap-2 uppercase tracking-wider">
@@ -161,7 +165,6 @@ export default function EventCalendar({ theme, activeRole }) {
   );
 }
 
-// Helper Component for the 3 Signatures
 function ApprovalKey({ label, isSigned, canSign, onSign }) {
   if (isSigned) {
     return <div className="flex flex-col items-center justify-center w-20 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500"><CheckCircle className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">{label}</span></div>;
