@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import { Calendar, CheckCircle, Clock, AlertCircle, ShieldAlert, Trash2 } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, AlertCircle, ShieldAlert, Trash2, XCircle } from 'lucide-react';
 
 export default function EventCalendar({ theme, activeRole }) {
-  // Normalize the role with trim() to remove accidental spaces
   const normalizedRole = String(activeRole || '').toLowerCase().trim();
 
-  // 1. HARD LOCKOUT FOR STUDENTS
   if (normalizedRole === 'student' || !normalizedRole) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in">
@@ -22,13 +20,11 @@ export default function EventCalendar({ theme, activeRole }) {
     textStrong: 'text-white', textMuted: 'text-gray-400', inputBg: 'bg-[#1a1a1a]'
   };
 
-  // Bulletproof Role Checks (Admins get God-Mode for all signatures)
   const isAdmin = normalizedRole.includes('admin');
   const isPresident = normalizedRole.includes('president') || isAdmin;
   const isVP = normalizedRole.includes('vp') || normalizedRole.includes('vice') || isAdmin;
   const isTreasurer = normalizedRole.includes('treasurer') || isAdmin;
   
-  // Anyone with a leadership keyword can delete
   const isCouncil = normalizedRole.includes('council') || isAdmin || isPresident || isVP || isTreasurer;
 
   const [events, setEvents] = useState([]);
@@ -59,27 +55,44 @@ export default function EventCalendar({ theme, activeRole }) {
     setEventDate(''); setEventName(''); setEventPurpose('');
   };
 
-  const handleSignApproval = async (event, roleType) => {
-    let updates = {};
-    if (roleType === 'president') updates.pres_approved = true;
-    if (roleType === 'vp') updates.vp_approved = true;
-    if (roleType === 'treasurer') updates.treas_approved = true;
+  const handleToggleApproval = async (event, roleType) => {
+    // SAFETY CATCH: Prevent mass-updates if ID is missing
+    if (!event.id) {
+      alert("Critical Error: Event ID is missing. Cannot update.");
+      return;
+    }
 
-    const isNowApproved = 
-      (roleType === 'president' || event.pres_approved) &&
-      (roleType === 'vp' || event.vp_approved) &&
-      (roleType === 'treasurer' || event.treas_approved);
-      
-    if (isNowApproved) updates.status = 'approved';
+    // Determine if we are approving or reverting based on current state
+    let isCurrentlyApproved = false;
+    if (roleType === 'president') isCurrentlyApproved = event.pres_approved;
+    if (roleType === 'vp') isCurrentlyApproved = event.vp_approved;
+    if (roleType === 'treasurer') isCurrentlyApproved = event.treas_approved;
+
+    let updates = {};
+    if (roleType === 'president') updates.pres_approved = !isCurrentlyApproved;
+    if (roleType === 'vp') updates.vp_approved = !isCurrentlyApproved;
+    if (roleType === 'treasurer') updates.treas_approved = !isCurrentlyApproved;
+
+    // Calculate if all 3 signatures are present after this click
+    const willBePres = roleType === 'president' ? updates.pres_approved : event.pres_approved;
+    const willBeVp = roleType === 'vp' ? updates.vp_approved : event.vp_approved;
+    const willBeTreas = roleType === 'treasurer' ? updates.treas_approved : event.treas_approved;
+
+    updates.status = (willBePres && willBeVp && willBeTreas) ? 'approved' : 'pending';
 
     const { error } = await supabase.from('calendar_events').update(updates).eq('id', event.id);
-    if (error) alert("Approval failed: " + error.message);
+    if (error) alert("Action failed: " + error.message);
   };
 
-  const handleDeleteEvent = async (id) => {
+  const handleDenyEvent = async (id) => {
     if (!isCouncil) return;
+    if (!id) return alert("Critical Error: Event ID is missing.");
+    
+    const confirmDeny = window.confirm("Are you sure you want to DENY and delete this event request?");
+    if (!confirmDeny) return;
+
     const { error } = await supabase.from('calendar_events').delete().eq('id', id);
-    if (error) alert("Delete failed: " + error.message);
+    if (error) alert("Deny failed: " + error.message);
   };
 
   const pendingEvents = events.filter(e => e.status === 'pending');
@@ -103,14 +116,19 @@ export default function EventCalendar({ theme, activeRole }) {
                   <div className="text-xs text-gray-400 mt-1">{ev.purpose}</div>
                 </div>
                 
-                {/* Signature Status Indicators & Actions */}
+                {/* Signatures & Deny Button */}
                 <div className="flex flex-wrap items-center gap-2">
-                 <ApprovalKey label="President" isSigned={ev.pres_approved} canSign={isPresident} onSign={() => handleSignApproval(ev, 'president')} roleStr={normalizedRole} />
-<ApprovalKey label="VP" isSigned={ev.vp_approved} canSign={isVP} onSign={() => handleSignApproval(ev, 'vp')} roleStr={normalizedRole} />
-<ApprovalKey label="Treasurer" isSigned={ev.treas_approved} canSign={isTreasurer} onSign={() => handleSignApproval(ev, 'treasurer')} roleStr={normalizedRole} />
+                  <ApprovalKey label="President" isSigned={ev.pres_approved} canSign={isPresident} onToggle={() => handleToggleApproval(ev, 'president')} roleStr={normalizedRole} />
+                  <ApprovalKey label="VP" isSigned={ev.vp_approved} canSign={isVP} onToggle={() => handleToggleApproval(ev, 'vp')} roleStr={normalizedRole} />
+                  <ApprovalKey label="Treasurer" isSigned={ev.treas_approved} canSign={isTreasurer} onToggle={() => handleToggleApproval(ev, 'treasurer')} roleStr={normalizedRole} />
+                  
                   {isCouncil && (
-                    <button onClick={() => handleDeleteEvent(ev.id)} className="ml-2 p-2.5 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg border border-red-500/20 transition-all flex flex-col items-center justify-center w-12 h-14">
-                      <Trash2 className="w-4 h-4" />
+                    <button 
+                      onClick={() => handleDenyEvent(ev.id)} 
+                      className="ml-2 px-3 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white rounded-lg border border-red-500/20 transition-all flex flex-col items-center justify-center h-14 shadow-sm"
+                    >
+                      <XCircle className="w-4 h-4 mb-1" />
+                      <span className="text-[9px] font-bold uppercase">Deny</span>
                     </button>
                   )}
                 </div>
@@ -151,9 +169,11 @@ export default function EventCalendar({ theme, activeRole }) {
                     <p className="text-xs text-gray-400 mt-1">{ev.purpose}</p>
                   </div>
                 </div>
+                {/* Allow reverting even after it is officially approved */}
                 {isCouncil && (
-                  <button onClick={() => handleDeleteEvent(ev.id)} className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
-                    <Trash2 className="w-4 h-4" />
+                  <button onClick={() => handleToggleApproval(ev, isPresident ? 'president' : isVP ? 'vp' : 'treasurer')} className="px-3 py-2 text-amber-500 hover:bg-amber-500/10 border border-amber-500/20 bg-amber-500/5 rounded-lg transition-colors flex flex-col items-center">
+                     <Clock className="w-4 h-4 mb-1" />
+                     <span className="text-[9px] font-bold uppercase">Revoke</span>
                   </button>
                 )}
               </div>
@@ -165,23 +185,27 @@ export default function EventCalendar({ theme, activeRole }) {
   );
 }
 
-function ApprovalKey({ label, isSigned, canSign, onSign, roleStr }) {
-  // Fallback: If you are in the council, we will let you click it just in case the specific title mapping is failing
+// Updated Key Component that supports Reverting
+function ApprovalKey({ label, isSigned, canSign, onToggle, roleStr }) {
   const forceCanSign = canSign || String(roleStr).includes('council') || String(roleStr).includes('admin');
 
   if (isSigned) {
     return (
-      <div className="flex flex-col items-center justify-center w-20 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500">
+      <button 
+        onClick={forceCanSign ? onToggle : undefined} 
+        title={forceCanSign ? "Click to Revoke Approval" : ""}
+        className={`flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all shadow-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 ${forceCanSign ? 'cursor-pointer hover:bg-red-500/10 hover:border-red-500 hover:text-red-500' : ''}`}
+      >
         <CheckCircle className="w-4 h-4 mb-1" />
         <span className="text-[9px] font-bold uppercase">{label}</span>
-      </div>
+      </button>
     );
   }
   
   if (forceCanSign) {
     return (
       <button 
-        onClick={onSign} 
+        onClick={onToggle} 
         className="flex flex-col items-center justify-center w-20 h-14 bg-emerald-500/10 hover:bg-emerald-500 hover:border-emerald-500 hover:text-white border border-emerald-500/30 rounded-lg text-emerald-500 transition-all shadow-sm cursor-pointer"
       >
         <CheckCircle className="w-4 h-4 mb-1" />
