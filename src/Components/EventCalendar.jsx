@@ -3,8 +3,8 @@ import { supabase } from '../supabaseClient';
 import { Calendar, CheckCircle, Clock, AlertCircle, ShieldAlert, Trash2 } from 'lucide-react';
 
 export default function EventCalendar({ theme, activeRole }) {
-  // Normalize the role to lowercase to prevent capitalization bugs
-  const normalizedRole = String(activeRole || '').toLowerCase();
+  // Normalize the role with trim() to remove accidental spaces
+  const normalizedRole = String(activeRole || '').toLowerCase().trim();
 
   // 1. HARD LOCKOUT FOR STUDENTS
   if (normalizedRole === 'student' || !normalizedRole) {
@@ -22,13 +22,14 @@ export default function EventCalendar({ theme, activeRole }) {
     textStrong: 'text-white', textMuted: 'text-gray-400', inputBg: 'bg-[#1a1a1a]'
   };
 
-  // Assign specific signature rights
-  const isPresident = normalizedRole === 'president';
-  const isVP = normalizedRole === 'vp';
-  const isTreasurer = normalizedRole === 'treasurer';
+  // Bulletproof Role Checks (Admins get God-Mode for all signatures)
+  const isAdmin = normalizedRole.includes('admin');
+  const isPresident = normalizedRole.includes('president') || isAdmin;
+  const isVP = normalizedRole.includes('vp') || normalizedRole.includes('vice') || isAdmin;
+  const isTreasurer = normalizedRole.includes('treasurer') || isAdmin;
   
-  // Council and Admins (including President, VP, Treasurer) get delete privileges
-  const isCouncil = ['council', 'admin', 'president', 'vp', 'treasurer'].includes(normalizedRole);
+  // Anyone with a leadership keyword can delete
+  const isCouncil = normalizedRole.includes('council') || isAdmin || isPresident || isVP || isTreasurer;
 
   const [events, setEvents] = useState([]);
   const [eventDate, setEventDate] = useState('');
@@ -170,7 +171,7 @@ function ApprovalKey({ label, isSigned, canSign, onSign }) {
     return <div className="flex flex-col items-center justify-center w-20 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-500"><CheckCircle className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">{label}</span></div>;
   }
   if (canSign) {
-    return <button onClick={onSign} className="flex flex-col items-center justify-center w-20 h-14 bg-amber-500/10 hover:bg-emerald-500 hover:border-emerald-500 hover:text-white border border-amber-500/30 rounded-lg text-amber-500 transition-all shadow-sm"><Clock className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">Sign</span></button>;
+    return <button onClick={onSign} className="flex flex-col items-center justify-center w-20 h-14 bg-amber-500/10 hover:bg-emerald-500 hover:border-emerald-500 hover:text-white border border-amber-500/30 rounded-lg text-amber-500 transition-all shadow-sm cursor-pointer"><Clock className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">Sign</span></button>;
   }
   return <div className="flex flex-col items-center justify-center w-20 h-14 bg-gray-500/10 border border-gray-500/20 rounded-lg text-gray-500"><Clock className="w-4 h-4 mb-1" /><span className="text-[9px] font-bold uppercase">Pending</span></div>;
 }
