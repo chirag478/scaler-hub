@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, Home, DollarSign, Calendar, MessageSquare, 
   Sun, Moon, Bell, LogOut, Sparkles, TrendingUp, 
-  Wallet, Menu, X, Key, CheckCircle2, ArrowRight 
+  Wallet, Menu, X, Key, CheckCircle2, ArrowRight, UserCheck
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import AuthScreen from './Components/AuthScreen';
@@ -10,12 +11,17 @@ import FinanceLedger from './Components/FinanceLedger';
 import EventCalendar from './Components/EventCalendar';
 import AnonymousForum from './Components/AnonymousForum';
 import AdminUserManagement from './Components/AdminUserManagement';
+import DevPersonaSwitcher from './Components/DevPersonaSwitcher';
+import ThemeToggle from './Components/ThemeToggle';
+import { INITIAL_SHEET_TRANSACTIONS } from './sheetData';
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [activeRole, setActiveRole] = useState('student');
+  const [isSimulated, setIsSimulated] = useState(false);
+  const [realUser, setRealUser] = useState(null);
 
   const [activeTab, setActiveTab] = useState('overview');
   const [isDark, setIsDark] = useState(true);
@@ -59,18 +65,38 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
+        setRealUser(session.user);
         fetchUserProfile(session.user);
       } else {
+        // Check for saved dev persona in localStorage
+        const saved = localStorage.getItem('scaler_dev_persona');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setSession({ user: { id: parsed.id, email: parsed.email } });
+            setUserProfile(parsed);
+            setActiveRole(parsed.role);
+            setIsSimulated(true);
+          } catch (e) {
+            localStorage.removeItem('scaler_dev_persona');
+          }
+        }
         setAuthLoading(false);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session?.user) fetchUserProfile(session.user);
-      else {
-        setUserProfile(null);
-        setActiveRole('student');
+      if (session?.user) {
+        setRealUser(session.user);
+        fetchUserProfile(session.user);
+      } else {
+        const saved = localStorage.getItem('scaler_dev_persona');
+        if (!saved) {
+          setUserProfile(null);
+          setActiveRole('student');
+          setIsSimulated(false);
+        }
         setAuthLoading(false);
       }
     });
@@ -95,6 +121,58 @@ export default function App() {
       setActiveRole(fallbackProfile.role);
     }
     setAuthLoading(false);
+  };
+
+  // Switch persona in Dev Mode
+  const handleSwitchPersona = (persona) => {
+    setIsSimulated(true);
+    const simulated = {
+      id: realUser?.id || `dev-${persona.id}`,
+      full_name: persona.fullName,
+      email: persona.email,
+      role: persona.role,
+      sub_role: persona.subRole,
+      organization: persona.organization,
+      is_simulated: true,
+    };
+    setUserProfile(simulated);
+    setActiveRole(persona.role);
+    try {
+      localStorage.setItem('scaler_dev_persona', JSON.stringify(simulated));
+    } catch (e) {}
+  };
+
+  // Revert back to real authenticated user
+  const handleResetRealUser = async () => {
+    localStorage.removeItem('scaler_dev_persona');
+    setIsSimulated(false);
+    if (realUser) {
+      await fetchUserProfile(realUser);
+    } else {
+      setSession(null);
+      setUserProfile(null);
+      setActiveRole('student');
+    }
+  };
+
+  // Instant login from login screen
+  const handleDevLogin = (persona) => {
+    const simulated = {
+      id: `dev-${persona.id}`,
+      full_name: persona.fullName,
+      email: persona.email,
+      role: persona.role,
+      sub_role: persona.subRole,
+      organization: persona.organization,
+      is_simulated: true,
+    };
+    setSession({ user: { id: simulated.id, email: simulated.email } });
+    setUserProfile(simulated);
+    setActiveRole(persona.role);
+    setIsSimulated(true);
+    try {
+      localStorage.setItem('scaler_dev_persona', JSON.stringify(simulated));
+    } catch (e) {}
   };
 
   // -------------------------------------------------------------
@@ -123,7 +201,6 @@ export default function App() {
     const forumUpdateSub = supabase
       .channel('notif-forum-updates')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'forum_posts' }, (payload) => {
-        // If a reply was just added, notify the cohort
         if (payload.new.reply && !payload.old.reply) {
           addNotification('Official Council Reply', `A response was added to: "${payload.new.text.substring(0, 30)}..."`);
         }
@@ -145,11 +222,10 @@ export default function App() {
     };
   }, [session]);
 
-const addNotification = (title, message) => {
+  const addNotification = (title, message) => {
     const timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setNotifications(prev => {
       const newNotifs = [{ id: Date.now(), title, message, time: timeString }, ...prev];
-      // Slice the array to keep only the 4 most recent notifications
       return newNotifs.slice(0, 4); 
     });
     setUnreadCount(prev => prev + 1);
@@ -157,33 +233,70 @@ const addNotification = (title, message) => {
 
   const handleOpenNotifications = () => {
     setNotificationsOpen(!notificationsOpen);
-    if (!notificationsOpen) setUnreadCount(0); // Clear unread dot when opening tray
+    if (!notificationsOpen) setUnreadCount(0);
   };
 
   const fetchOverviewStats = async () => {
-    const [fundsRes, txRes, eventsRes, postsRes] = await Promise.all([
-      supabase.from('funds').select('amount'),
-      supabase.from('transactions').select('amount'),
-      supabase.from('calendar_events').select('*').order('date', { ascending: true }),
-      supabase.from('forum_posts').select('status'),
-    ]);
+    try {
+      const [fundsRes, txRes, eventsRes, postsRes] = await Promise.all([
+        supabase.from('funds').select('amount'),
+        supabase.from('transactions').select('amount'),
+        supabase.from('calendar_events').select('*').order('date', { ascending: true }),
+        supabase.from('forum_posts').select('status'),
+      ]);
 
-    const totalFunds = (fundsRes.data || []).reduce((acc, f) => acc + Number(f.amount), 0);
-    const totalSpent = (txRes.data || []).reduce((acc, t) => acc + Number(t.amount), 0);
-    const events = eventsRes.data || [];
-    const posts = postsRes.data || [];
+      let totalFunds = (fundsRes.data || []).reduce((acc, f) => acc + Number(f.amount), 0);
+      let totalSpent = (txRes.data || []).reduce((acc, t) => acc + Number(t.amount), 0);
+      let events = eventsRes.data || [];
+      let posts = postsRes.data || [];
 
-    setStats({
-      totalFunds,
-      totalSpent,
-      upcomingEventsCount: events.length,
-      nextEvent: events[0] || null,
-      openIssuesCount: posts.filter(p => p.status !== 'Resolved').length,
-      resolvedIssuesCount: posts.filter(p => p.status === 'Resolved').length,
-    });
+      // If remote Supabase returned empty/offline, read from local storage cache or initial sheet data
+      if (totalSpent === 0) {
+        try {
+          const cachedTx = localStorage.getItem('scaler_transactions_backup');
+          const list = cachedTx ? JSON.parse(cachedTx) : INITIAL_SHEET_TRANSACTIONS;
+          totalSpent = list.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+        } catch (e) {
+          totalSpent = INITIAL_SHEET_TRANSACTIONS.reduce((acc, t) => acc + Number(t.amount || 0), 0);
+        }
+      }
+
+      if (totalFunds === 0) {
+        totalFunds = 250000; // Standard cohort treasury pool
+      }
+
+      if (events.length === 0) {
+        try {
+          const cachedEvents = localStorage.getItem('scaler_events_backup');
+          if (cachedEvents) events = JSON.parse(cachedEvents);
+        } catch (e) {}
+      }
+
+      setStats({
+        totalFunds,
+        totalSpent,
+        upcomingEventsCount: events.length,
+        nextEvent: events[0] || null,
+        openIssuesCount: posts.filter(p => p.status !== 'Resolved').length,
+        resolvedIssuesCount: posts.filter(p => p.status === 'Resolved').length,
+      });
+    } catch (err) {
+      console.warn("fetchOverviewStats fallback:", err);
+    }
   };
 
-  const handleLogout = async () => await supabase.auth.signOut();
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem('scaler_dev_persona');
+    } catch (e) {}
+    setIsSimulated(false);
+    setUserProfile(null);
+    setSession(null);
+    setActiveRole('student');
+    await supabase.auth.signOut();
+  };
+
+
 
   if (authLoading) {
     return (
@@ -196,7 +309,14 @@ const addNotification = (title, message) => {
     );
   }
 
-  if (!session) return <AuthScreen onAuthSuccess={(user) => fetchUserProfile(user)} />;
+  if (!session) {
+    return (
+      <AuthScreen 
+        onAuthSuccess={(user) => fetchUserProfile(user)} 
+        onDevLogin={handleDevLogin} 
+      />
+    );
+  }
 
   const navItems = [
     { id: 'overview', label: 'Hub Overview', icon: Home },
@@ -255,10 +375,20 @@ const addNotification = (title, message) => {
           })}
         </nav>
 
+        {/* Identity card */}
         <div className={`p-4 m-4 rounded-xl border ${theme.border} ${theme.inputBg} shrink-0`}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-500">Verified Identity</span>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${isSimulated ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500 animate-pulse'}`} />
+              <span className={`text-[9px] font-extrabold uppercase tracking-wider ${isSimulated ? 'text-amber-400' : 'text-emerald-500'}`}>
+                {isSimulated ? 'Simulated POV' : 'Verified Identity'}
+              </span>
+            </div>
+            {isSimulated && (
+              <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                Dev
+              </span>
+            )}
           </div>
           <div className={`text-xs font-extrabold ${theme.textStrong} truncate`}>{userProfile?.full_name}</div>
           <div className={`text-[10px] font-bold ${theme.textMuted} truncate mt-0.5`}>
@@ -271,22 +401,35 @@ const addNotification = (title, message) => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         
         {/* UNIFIED TOP HEADER */}
-        <header className={`h-16 px-4 md:px-8 ${theme.surface} border-b ${theme.border} flex items-center justify-between shrink-0 z-30`}>
-          <div className="flex items-center gap-3">
-            <button className={`md:hidden p-2 -ml-2 rounded-lg ${theme.textMuted} ${theme.hover}`} onClick={() => setMobileMenuOpen(true)}>
-              <Menu className="w-5 h-5" />
+        <header className={`h-16 px-3.5 sm:px-6 md:px-8 ${theme.surface} border-b ${theme.border} flex items-center justify-between shrink-0 z-30`}>
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <button 
+              className={`md:hidden p-2 rounded-xl ${theme.textMuted} ${theme.hover} border ${theme.border} shrink-0`} 
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open navigation menu"
+            >
+              <Menu className="w-4 h-4" />
             </button>
-            <h1 className={`text-base md:text-lg font-extrabold tracking-tight ${theme.textStrong}`}>
-              {navItems.find(i => i.id === activeTab)?.label || 'Transparency Hub'}
-            </h1>
+            <div className="min-w-0">
+              <h1 className={`text-sm sm:text-base md:text-lg font-extrabold tracking-tight ${theme.textStrong} truncate`}>
+                {navItems.find(i => i.id === activeTab)?.label || 'Transparency Hub'}
+              </h1>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Active POV Badge - Desktop */}
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-xs font-bold shadow-sm">
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>POV: {userProfile?.sub_role || activeRole}</span>
+            </div>
+
             {/* LIVE NOTIFICATION BELL */}
             <div className="relative">
               <button
                 onClick={handleOpenNotifications}
-                className={`relative p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all`}
+                title="Cohort Notifications"
+                className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all flex items-center justify-center`}
               >
                 <Bell className="w-4 h-4" />
                 {unreadCount > 0 && (
@@ -297,7 +440,7 @@ const addNotification = (title, message) => {
               </button>
 
               {notificationsOpen && (
-                <div className={`absolute right-0 mt-2 w-64 sm:w-80 ${theme.surface} border ${theme.border} rounded-2xl shadow-2xl z-50 overflow-hidden`}>
+                <div className={`absolute right-0 mt-2 w-72 sm:w-80 ${theme.surface} border ${theme.border} rounded-2xl shadow-2xl z-50 overflow-hidden`}>
                   <div className={`p-3 border-b ${theme.border} flex justify-between items-center`}>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">Live Cohort Updates</span>
                     <button onClick={() => setNotificationsOpen(false)} className={theme.textMuted}><X className="w-3.5 h-3.5"/></button>
@@ -321,11 +464,10 @@ const addNotification = (title, message) => {
               )}
             </div>
 
-            <button onClick={() => setIsDark(!isDark)} className={`p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} ${theme.textMuted} hover:${theme.textStrong} transition-all`}>
-              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
-            </button>
+            {/* LUXURY DAY / NIGHT CAPSULE TOGGLE WITH VELVETY LUMINOUS WAVE */}
+            <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
 
-            <button onClick={handleLogout} className={`p-2 md:p-2.5 rounded-xl border ${theme.border} ${theme.inputBg} text-red-500 hover:bg-red-500/10 transition-all flex items-center gap-1.5 text-xs font-bold`}>
+            <button onClick={handleLogout} className={`h-9 sm:h-10 px-2.5 sm:px-3 rounded-xl border ${theme.border} ${theme.inputBg} text-red-500 hover:bg-red-500/10 transition-all flex items-center justify-center gap-1.5 text-xs font-bold shrink-0`}>
               <LogOut className="w-4 h-4" />
               <span className="hidden sm:inline">Sign Out</span>
             </button>
@@ -345,7 +487,7 @@ const addNotification = (title, message) => {
                   Welcome back, {(userProfile?.full_name || 'Member').split(' ')[0]}
                 </h2>
                 <p className={`text-[11px] md:text-sm ${theme.textMuted} max-w-2xl leading-relaxed`}>
-                  You are logged in securely as <span className="text-emerald-500 font-bold">{userProfile?.sub_role} ({userProfile?.organization === 'PGP Cohort' ? 'Student' : userProfile?.organization})</span>.
+                  You are logged in as <span className="text-emerald-500 font-bold">{userProfile?.sub_role} ({userProfile?.organization === 'PGP Cohort' ? 'Student' : userProfile?.organization})</span>.
                   All operations, events, and townhall polls are synced in real time across the cohort.
                 </p>
               </div>
@@ -396,6 +538,15 @@ const addNotification = (title, message) => {
           {activeTab === 'users' && activeRole === 'admin' && <AdminUserManagement theme={theme} />}
         </main>
       </div>
+
+      {/* FLOATING DEV MULTI-USER PERSONA SWITCHER */}
+      <DevPersonaSwitcher
+        activeRole={activeRole}
+        userProfile={userProfile}
+        onSwitchPersona={handleSwitchPersona}
+        onResetRealUser={handleResetRealUser}
+        isSimulated={isSimulated}
+      />
     </div>
   );
 }

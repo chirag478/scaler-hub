@@ -54,9 +54,9 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
 
         setCurrentUserInfo({
           id: user.id,
-          name: profile?.full_name || userProfile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
-          email: profile?.email || user.email || '',
-          role: profile?.role || activeRole || 'student',
+          name: userProfile?.full_name || profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Student',
+          email: userProfile?.email || profile?.email || user.email || '',
+          role: activeRole || profile?.role || 'student',
         });
       }
     };
@@ -64,7 +64,7 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
   }, [activeRole, userProfile]);
 
   const isSystemAdmin = activeRole === 'admin' || currentUserInfo.role === 'admin';
-  const isCouncil = activeRole === 'council' || currentUserInfo.role === 'council';
+  const isCouncil = activeRole === 'council' || activeRole === 'president' || activeRole === 'vp' || activeRole === 'treasurer' || currentUserInfo.role === 'council';
   const canModerate = isSystemAdmin || isCouncil;
 
   useEffect(() => {
@@ -232,7 +232,7 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
               type="button"
               onClick={() => setPostMode('discussion')}
               className={`px-3 md:px-4 py-2 rounded-xl text-[11px] md:text-xs font-extrabold flex items-center gap-1.5 transition-all whitespace-nowrap ${
-                postMode === 'discussion' ? 'bg-emerald-500 text-white shadow-sm' : `${safeTheme.inputBg} ${safeTheme.textMuted} border${safeTheme.border}`
+                postMode === 'discussion' ? 'bg-emerald-500 text-white shadow-sm' : `${safeTheme.inputBg} ${safeTheme.textMuted} border ${safeTheme.border}`
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5" /> Discussion / Idea
@@ -241,7 +241,7 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
               type="button"
               onClick={() => setPostMode('poll')}
               className={`px-3 md:px-4 py-2 rounded-xl text-[11px] md:text-xs font-extrabold flex items-center gap-1.5 transition-all whitespace-nowrap ${
-                postMode === 'poll' ? 'bg-emerald-500 text-white shadow-sm' : `${safeTheme.inputBg} ${safeTheme.textMuted} border${safeTheme.border}`
+                postMode === 'poll' ? 'bg-emerald-500 text-white shadow-sm' : `${safeTheme.inputBg} ${safeTheme.textMuted} border ${safeTheme.border}`
               }`}
             >
               <BarChart2 className="w-3.5 h-3.5" /> Create Cohort Poll
@@ -346,7 +346,7 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
             key={cat}
             onClick={() => setSelectedCategory(cat)}
             className={`px-3 md:px-3.5 py-1.5 rounded-full text-[11px] md:text-xs font-bold transition-all shrink-0 ${
-              selectedCategory === cat ? 'bg-emerald-500 text-white shadow-sm' : `${safeTheme.surface} border${safeTheme.border} ${safeTheme.textMuted} hover:${safeTheme.textStrong}`
+              selectedCategory === cat ? 'bg-emerald-500 text-white shadow-sm' : `${safeTheme.surface} border ${safeTheme.border} ${safeTheme.textMuted} hover:${safeTheme.textStrong}`
             }`}
           >
             {cat}
@@ -411,7 +411,7 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
                             type="button"
                             onClick={() => handleVotePoll(post, opt.id)}
                             className={`w-full relative overflow-hidden rounded-xl border text-left p-2.5 md:p-3 transition-all ${
-                              isChosen ? 'border-emerald-500 bg-emerald-500/10' : `${safeTheme.border}${safeTheme.inputBg} hover:border-gray-500`
+                              isChosen ? 'border-emerald-500 bg-emerald-500/10' : `${safeTheme.border} ${safeTheme.inputBg} hover:border-gray-500`
                             }`}
                           >
                             <div style={{ width: `${pct}%` }} className={`absolute inset-y-0 left-0 transition-all duration-500 ${isChosen ? 'bg-emerald-500/25' : 'bg-gray-500/15'}`} />
@@ -438,7 +438,7 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
                   <button
                     onClick={() => handleUpvote(post.id, post.upvotes, post.upvoters)}
                     className={`flex flex-col items-center justify-center px-3 md:px-3.5 py-1.5 md:py-2 rounded-xl border transition-all shrink-0 ${
-                      hasUpvoted ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : `${safeTheme.border} ${safeTheme.hover}${safeTheme.textMuted}`
+                      hasUpvoted ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : `${safeTheme.border} ${safeTheme.hover} ${safeTheme.textMuted}`
                     }`}
                   >
                     <ThumbsUp className={`w-3.5 h-3.5 md:w-4 md:h-4 ${hasUpvoted ? 'text-emerald-400 fill-emerald-500/20' : 'group-hover:text-emerald-500'} transition-colors`} />

@@ -260,7 +260,7 @@ export default function AdminUserManagement({ theme }) {
                     className={`py-2 px-3 rounded-xl text-xs font-bold border text-left transition-all ${
                       roleGroup === item.id
                         ? 'bg-emerald-500 text-white border-emerald-500'
-                        : `${safeTheme.inputBg} ${safeTheme.border}${safeTheme.textMuted}`
+                        : `${safeTheme.inputBg} ${safeTheme.border} ${safeTheme.textMuted}`
                     }`}
                   >
                     {item.label}
@@ -346,7 +346,100 @@ export default function AdminUserManagement({ theme }) {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* 1. MOBILE DIRECTORY VIEW */}
+          <div className="block md:hidden space-y-3">
+            {filteredUsers.length === 0 ? (
+              <div className={`py-6 text-center ${safeTheme.textMuted} font-semibold text-xs`}>
+                No matching users found.
+              </div>
+            ) : (
+              filteredUsers.map((u) => {
+                const displayOrg = u.organization === 'Cultural & Sports Committee' ? 'Cultural & Sports' : u.organization;
+                const selectVal = `${u.role}|${u.sub_role}|${displayOrg}`;
+
+                return (
+                  <div key={u.id} className={`p-4 rounded-xl border ${safeTheme.border} ${safeTheme.inputBg} space-y-3`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className={`font-extrabold text-sm ${safeTheme.textStrong} truncate`}>{u.full_name}</div>
+                        <div className={`text-[11px] ${safeTheme.textMuted} truncate`}>{u.email}</div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteUser(u.id, u.full_name)}
+                        className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                        title="Delete User"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider border ${getBadgeStyle(u.role)}`}>
+                        <Shield className="w-3 h-3 shrink-0" />
+                        {u.sub_role}
+                      </span>
+                      <span className={`text-[10px] font-bold ${safeTheme.textMuted}`}>
+                        • {displayOrg}
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-500/10">
+                      <label className={`block text-[10px] font-bold uppercase tracking-wider ${safeTheme.textMuted} mb-1`}>
+                        Override Role
+                      </label>
+                      <select
+                        value={selectVal}
+                        onChange={(e) => {
+                          const [r, sr, org] = e.target.value.split('|');
+                          handleQuickRoleUpdate(u.id, r, sr, org);
+                        }}
+                        className={`w-full ${safeTheme.surface} border ${safeTheme.border} rounded-xl px-3 py-2 text-xs font-bold ${safeTheme.textStrong} outline-none focus:border-emerald-500`}
+                      >
+                        <optgroup label="Student Cohort">
+                          <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
+                        </optgroup>
+                        <optgroup label="Student Council">
+                          <option value="council|President|Student Council">Council: President</option>
+                          <option value="council|Vice-President|Student Council">Council: Vice-President</option>
+                          <option value="council|Treasurer|Student Council">Council: Treasurer</option>
+                        </optgroup>
+                        <optgroup label="Product Management Club">
+                          <option value="club_lead|President|Product Management Club">Product Management Club: President</option>
+                          <option value="club_lead|Vice-President|Product Management Club">Product Management Club: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Strategy Club">
+                          <option value="club_lead|President|Strategy Club">Strategy Club: President</option>
+                          <option value="club_lead|Vice-President|Strategy Club">Strategy Club: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Marketing Club">
+                          <option value="club_lead|President|Marketing Club">Marketing Club: President</option>
+                          <option value="club_lead|Vice-President|Marketing Club">Marketing Club: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Entrepreneurship & VC Club">
+                          <option value="club_lead|President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: President</option>
+                          <option value="club_lead|Vice-President|Entrepreneurship & VC Club">Entrepreneurship & VC Club: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Finance Club">
+                          <option value="club_lead|President|Finance Club">Finance Club: President</option>
+                          <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Cultural & Sports">
+                          <option value="club_lead|President|Cultural & Sports">Cultural & Sports: President</option>
+                          <option value="club_lead|Vice-President|Cultural & Sports">Cultural & Sports: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="System Administration">
+                          <option value="admin|System Admin|Administration">System Admin</option>
+                        </optgroup>
+                      </select>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* 2. DESKTOP DIRECTORY TABLE */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[640px]">
               <thead>
                 <tr className={`border-b ${safeTheme.border} text-[11px] font-extrabold uppercase tracking-wider ${safeTheme.textMuted}`}>
@@ -397,7 +490,7 @@ export default function AdminUserManagement({ theme }) {
                               const [r, sr, org] = e.target.value.split('|');
                               handleQuickRoleUpdate(u.id, r, sr, org);
                             }}
-                            className={`${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2 text-xs font-bold ${safeTheme.textStrong} outline-none focus:border-emerald-500 transition-colors cursor-pointer w-full max-w-[220px]} ml-auto`}
+                            className={`${safeTheme.inputBg} border ${safeTheme.border} rounded-xl px-3 py-2 text-xs font-bold ${safeTheme.textStrong} outline-none focus:border-emerald-500 transition-colors cursor-pointer w-full max-w-[220px] ml-auto`}
                           >
                             <optgroup label="Student Cohort">
                               <option value="student|Cohort Member|PGP Cohort">Student (PGP Cohort)</option>
