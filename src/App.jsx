@@ -35,9 +35,33 @@ export default function App() {
   const [isSimulated, setIsSimulated] = useState(() => !!cachedDevPersona?.is_simulated);
   const [realUser, setRealUser] = useState(null);
 
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isDark, setIsDark] = useState(true);
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      return localStorage.getItem('scaler_active_tab') || 'overview';
+    } catch (e) {
+      return 'overview';
+    }
+  });
+  const [isDark, setIsDark] = useState(() => {
+    try {
+      return localStorage.getItem('scaler_theme') !== 'light';
+    } catch (e) {
+      return true;
+    }
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('scaler_active_tab', activeTab);
+    } catch (e) {}
+  }, [activeTab]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('scaler_theme', isDark ? 'dark' : 'light');
+    } catch (e) {}
+  }, [isDark]);
   
   // Realtime Notification State
   const [notificationsOpen, setNotificationsOpen] = useState(false);

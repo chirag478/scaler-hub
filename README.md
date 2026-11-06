@@ -31,80 +31,38 @@ The **Scaler Transparency Hub** is an institutional governance and financial aud
 
 ## 📸 Interface Snapshots & UI Walkthrough
 
-### 1. Hub Overview & Treasury Health
+### 1. Hub Overview & Real-Time Treasury Health
 > Real-time financial telemetry showing available balance, cumulative burn rate, active townhall issues, and upcoming calendar schedules.
 
-```
-+---------------------------------------------------------------------------------------+
-|  🏛️ SCALER SSB COHORT HUB            [POV: Spandan (Treasurer)]  [🔔 2]  [🌙 Night]   |
-+---------------------------------------------------------------------------------------+
-|  ✨ COHORT GOVERNANCE OPERATIONS                                                      |
-|  Welcome back, Spandan                                                                |
-|  Logged in as Treasurer & Budget Owner. Real-time ledger & sheet sync active.         |
-|                                                                                       |
-|  +------------------------+  +------------------------+  +------------------------+   |
-|  | AVAILABLE TREASURY     |  | SCHEDULED EVENTS       |  | TOWNHALL PULSE         |   |
-|  | ₹1,80,333.25           |  | 2 Approved             |  | 1 Active / 2 Resolved  |   |
-|  | Pool: ₹2,50,000        |  | Next: Product Hackathon|  | Live cohort sentiment  |   |
-|  +------------------------+  +------------------------+  +------------------------+   |
-+---------------------------------------------------------------------------------------+
-```
+![Hub Overview & Treasury Health](docs/screenshots/dashboard-overview.png)
 
 ---
 
 ### 2. Live Google Sheets Two-Way Finance Ledger
-> Matches every column of the official `Council Spends` spreadsheet (Date, Event Header, Description, Vendor, Entity, Qty, Unit Price, Total, Paid By, Receipt Link, Notes).
+> Matches every column of the official `Council Spends` spreadsheet (Date, Event Header, Description, Vendor, Entity, Qty, Unit Price, Total, Paid By, Receipt Link, Notes) with mandatory bill attachments and ₹20,000 club caps.
 
-```
-+---------------------------------------------------------------------------------------+
-|  📊 Google Sheet Live Sync  [Two-Way Active]               [🔄 Sync Sheet] [↗ Open]  |
-|  Synced with: Council Club Budget Tracker (Council Spends Tab)                        |
-+---------------------------------------------------------------------------------------+
-|  STUDENT COUNCIL CAP: ₹2,50,000                                                       |
-|  ₹69,666.75 Spent (27.9%) [========================-----------------]                 |
-|                                                                                       |
-|  CLUB ALLOCATIONS (₹20,000 each per Guideline 1):                                     |
-|  [Product Club: ₹0/20k] [Strategy: ₹0/20k] [Academics: ₹0/20k] [Sports: ₹0/20k]        |
-+---------------------------------------------------------------------------------------+
-|  LOG EXPENSE (Spandan Only):                                                          |
-|  [Date: 2026-11-06] [Event: Week 1 Cohort Connect v] [Entity: Student Council v]     |
-|  [Item: Amphitheatre Stage Audio] [Vendor: Zepto] [Qty: 1] [Unit: 4500] [Total: 4500]|
-|  [Paid By: Spandan] [Reimbursement?: No v] [Bill/Drive Link: drive.google.com/... *] |
-|  [Commit to Ledger & Write to Google Sheet]                                           |
-+---------------------------------------------------------------------------------------+
-```
+![Google Sheets Live Finance Ledger](docs/screenshots/finance-ledger.png)
 
 ---
 
 ### 3. Multi-Signature Event Planner (Ashil, Madhur & Spandan)
-> Propose events with itemised budget estimates; proposals move to the Official Calendar only when all 3 approvers place their cryptographic signatures.
+> Propose events with itemised budget estimates; proposals move to the Official Calendar only when all 3 designated signers place their cryptographic approval.
 
-```
-+---------------------------------------------------------------------------------------+
-|  ⚠️ NEEDS 3-KEY APPROVAL (1)                                  [Mandatory Guideline 2]  |
-|  2026-11-12 • Est. Budget: ₹15,000                                                    |
-|  Product Management Hackathon (Case challenge, goodies & speaker cabs)                |
-|                                                                                       |
-|  [ Ashil: APPROVED ✅ ]     [ Madhur: APPROVE ✍️ ]     [ Spandan: PENDING ⏳ ]        |
-|  (Council Approver 1)       (Council Approver 2)        (Budget Owner)                |
-+---------------------------------------------------------------------------------------+
-|  📅 OFFICIAL APPROVED CALENDAR                                                         |
-|  [ 20 NOV ] Venture Capital & Founders Panel (Budget: ₹8,000) [Revoke]                |
-+---------------------------------------------------------------------------------------+
-```
+![3-Key Multi-Signature Event Approval Queue](docs/screenshots/event-calendar.png)
 
 ---
 
-### 4. Day / Night Luminous Capsule Switch
-> Custom-engineered day/night capsule toggle with tactile spring physics and a soft, luminous radial wave transition.
+### 4. Student Townhall & Anonymous Feedback Forum
+> Secure, anonymous student forum with category filters, interactive cohort polls, and real-time administrative responses.
 
-```
-   Night Mode (Obsidian & Stars)               Day Mode (Warm Sunbeam)
-   +---------------------------+               +---------------------------+
-   |  *  .  ✨      ( 🌙 )     |     <--->     |     ( ☀️ )      .   ☀     |
-   +---------------------------+               +---------------------------+
-        Indigo Glow Knob                            Amber-Gold Glow Knob
-```
+![Student Townhall & Anonymous Forum](docs/screenshots/townhall-forum.png)
+
+---
+
+### 5. Day / Night Luminous Capsule Theme
+> Custom-engineered day/night capsule toggle with tactile spring physics and a soft luminous radial gradient wave transition.
+
+![Day Theme Hub Overview](docs/screenshots/theme-light.png)
 
 ---
 
