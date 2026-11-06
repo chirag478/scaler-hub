@@ -5,6 +5,35 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
+const DEFAULT_FORUM_POSTS = [
+  {
+    id: 'post-1',
+    author: 'Anonymous',
+    category: 'Infrastructure',
+    text: 'Can we get high-bandwidth WiFi access points added near the study pods in Tower B? Connection drops during peak cohort hours.',
+    status: 'In Progress',
+    upvotes: 19,
+    upvoters: [],
+    reply: 'IT infrastructure team has surveyed the pods; 2 additional Wi-Fi 6 APs are scheduled for deployment this weekend.',
+    created_at: new Date(Date.now() - 86400000 * 2).toISOString()
+  },
+  {
+    id: 'post-2',
+    author: 'Anonymous',
+    category: 'Events',
+    text: 'What format do we prefer for the upcoming Karnataka Rajyotsava & Cultural Night? Vote on food & timing!',
+    is_poll: true,
+    poll_options: [
+      { id: 'opt-1', text: 'Evening Traditional Dinner + Cultural Showcase', votes: 24 },
+      { id: 'opt-2', text: 'Afternoon Food Mela + Music Jam', votes: 9 }
+    ],
+    status: 'Resolved',
+    upvotes: 28,
+    upvoters: [],
+    created_at: new Date(Date.now() - 86400000).toISOString()
+  }
+];
+
 export default function AnonymousForum({ theme, activeRole, userProfile }) {
   const safeTheme = theme || {
     bg: 'bg-[#0a0a0a]',
@@ -18,8 +47,15 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
 
   const isDark = safeTheme.bg.includes('0a0a0a');
 
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState(() => {
+    try {
+      const cached = localStorage.getItem('scaler_forum_posts_backup');
+      return cached ? JSON.parse(cached) : DEFAULT_FORUM_POSTS;
+    } catch (e) {
+      return DEFAULT_FORUM_POSTS;
+    }
+  });
+  const [loading, setLoading] = useState(false);
 
   // Composer State
   const [postMode, setPostMode] = useState('discussion'); // 'discussion' | 'poll'
@@ -87,9 +123,15 @@ export default function AnonymousForum({ theme, activeRole, userProfile }) {
   }, []);
 
   const fetchPosts = async () => {
-    setLoading(true);
-    const { data, error } = await supabase.from('forum_posts').select('*').order('created_at', { ascending: false });
-    if (!error && data) setPosts(data);
+    try {
+      const fetchPromise = supabase.from('forum_posts').select('*').order('created_at', { ascending: false });
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject('timeout'), 700));
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+      if (!error && data && data.length > 0) {
+        setPosts(data);
+        localStorage.setItem('scaler_forum_posts_backup', JSON.stringify(data));
+      }
+    } catch (e) {}
     setLoading(false);
   };
 

@@ -77,16 +77,18 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
 
   const councilList = [
     'Student Council',
-    'Cultural & Sports',
+    'Academics',
+    'Sports',
     'Product Club',
     'Strategy Club',
     'Marketing Club',
     'Finance Club',
     'E and VC Club',
+    'Cultural & Sports',
     'Other'
   ];
 
-  const mainClubs = ['Product Club', 'Strategy Club', 'Finance Club', 'Marketing Club'];
+  const mainClubs = ['Product Club', 'Strategy Club', 'Finance Club', 'Marketing Club', 'Academics', 'Sports'];
 
   // Auto-calculate total amount if Qty & Unit Price are filled
   useEffect(() => {
@@ -138,6 +140,9 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
     if (!isTreasurer) return alert("Only the Treasurer can update the ledger.");
     if (!txAmount || isNaN(Number(txAmount)) || Number(txAmount) <= 0) {
       return alert("Please enter a valid positive expense amount.");
+    }
+    if (!txReceipt.trim()) {
+      return alert("Bill / Receipt Required: Per Guideline 5, every expense must link an attached invoice number or Google Drive receipt link.");
     }
 
     const finalCategory = customEventMode && newEventName.trim() 
@@ -563,15 +568,17 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
               </div>
 
               <div>
-                <label className={`text-[10px] font-bold ${safeTheme.textMuted} uppercase tracking-wider mb-1.5 block`}>
-                  Invoice No / Reference Link
+                <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Bill / Receipt Link *</span>
+                  <span className="text-[9px] opacity-80 lowercase font-medium">Guideline 5</span>
                 </label>
                 <input 
                   type="text" 
-                  placeholder="e.g. INV-113 / Drive link" 
+                  required
+                  placeholder="e.g. Google Drive receipt link / Inv #104" 
                   value={txReceipt} 
                   onChange={(e) => setTxReceipt(e.target.value)} 
-                  className={`w-full ${safeTheme.inputBg} border ${safeTheme.border} ${safeTheme.textStrong} rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-emerald-500 transition-all`} 
+                  className={`w-full ${safeTheme.inputBg} border border-emerald-500/40 ${safeTheme.textStrong} rounded-xl px-3.5 py-2.5 text-xs outline-none focus:border-emerald-500 transition-all`} 
                 />
               </div>
             </div>
@@ -602,7 +609,7 @@ export default function FinanceLedger({ theme, activeRole, userProfile }) {
       ) : (
         <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center gap-3 text-xs text-blue-500 dark:text-blue-400 font-bold">
           <ShieldAlert className="w-5 h-5 shrink-0" />
-          <span>Only the official Treasurer can record expenses. Switch to Treasurer using the bottom-right POV Switcher to add records.</span>
+          <span>Only Spandan (Budget Owner & Treasurer) or Admin can record expenses. Switch to Spandan using the bottom-right POV Switcher to add records.</span>
         </div>
       )}
 

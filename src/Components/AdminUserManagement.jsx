@@ -35,6 +35,8 @@ export default function AdminUserManagement({ theme }) {
     'Marketing Club',
     'Entrepreneurship & VC Club',
     'Finance Club',
+    'Academics',
+    'Sports',
     'Cultural & Sports'
   ];
 
@@ -423,6 +425,14 @@ export default function AdminUserManagement({ theme }) {
                           <option value="club_lead|President|Finance Club">Finance Club: President</option>
                           <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
                         </optgroup>
+                        <optgroup label="Academics">
+                          <option value="club_lead|President|Academics">Academics: President</option>
+                          <option value="club_lead|Vice-President|Academics">Academics: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Sports">
+                          <option value="club_lead|President|Sports">Sports: President</option>
+                          <option value="club_lead|Vice-President|Sports">Sports: Vice-President</option>
+                        </optgroup>
                         <optgroup label="Cultural & Sports">
                           <option value="club_lead|President|Cultural & Sports">Cultural & Sports: President</option>
                           <option value="club_lead|Vice-President|Cultural & Sports">Cultural & Sports: Vice-President</option>
@@ -520,7 +530,15 @@ export default function AdminUserManagement({ theme }) {
                               <option value="club_lead|President|Finance Club">Finance Club: President</option>
                               <option value="club_lead|Vice-President|Finance Club">Finance Club: Vice-President</option>
                             </optgroup>
-                            <optgroup label="Cultural & Sports">
+                            <optgroup label="Academics">
+                          <option value="club_lead|President|Academics">Academics: President</option>
+                          <option value="club_lead|Vice-President|Academics">Academics: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Sports">
+                          <option value="club_lead|President|Sports">Sports: President</option>
+                          <option value="club_lead|Vice-President|Sports">Sports: Vice-President</option>
+                        </optgroup>
+                        <optgroup label="Cultural & Sports">
                               <option value="club_lead|President|Cultural & Sports">Cultural & Sports: President</option>
                               <option value="club_lead|Vice-President|Cultural & Sports">Cultural & Sports: Vice-President</option>
                             </optgroup>
